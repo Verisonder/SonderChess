@@ -48,9 +48,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.core.Piece
 
-/** What the Play tab offers: the six bots, Stockfish, and the custom board. */
-private const val ENGINE = 6
-private const val CUSTOM = 7
+/** What the Play tab offers past the bots: Stockfish, and the custom board. */
+private const val ENGINE = 7
+private const val CUSTOM = 8
 
 /**
  * The Play tab: the chosen opponent greets you at the top, the bots below in a grid, then
@@ -230,6 +230,10 @@ fun BotFace(
     bot: Bot,
     size: Dp,
 ) {
+    if (bot.mark) {
+        Coach(size)
+        return
+    }
     val i = bots.indexOf(bot).coerceAtLeast(0)
     val body = Color(bot.colour)
     val dark = lerp(body, Color.Black, 0.45f)

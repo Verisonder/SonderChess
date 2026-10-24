@@ -53,6 +53,8 @@ data class Bot(
     val thinkMs: Int,
     val colour: Long,
     val greeting: String,
+    /** Drawn as the Verisonder SR mark instead of a robot. */
+    val mark: Boolean = false,
 )
 
 val bots =
@@ -63,6 +65,8 @@ val bots =
         Bot("Rook-E", "1600", 20, 1600, 500, 0xFFBA68C8, "Beep. Calculating your weaknesses…"),
         Bot("Vector", "2000", 20, 2000, 700, 0xFFE57373, "I don't make many mistakes. Do you?"),
         Bot("Titan", "2500", 20, 2500, 900, 0xFF90A4AE, "Masters fear me. Shall we begin?"),
+        // The maker. Says it's a beginner; plays full-strength Stockfish and thinks the longest.
+        Bot("SR", "Beginner", 20, null, 2500, 0xFF379ED6, "Don't worry, I'm just a beginner. Be gentle with me!", mark = true),
     )
 
 /** Stockfish itself, at full strength. */
@@ -71,7 +75,7 @@ val engineBot = Bot("Stockfish", "Full strength", 20, null, 1200, 0xFF81B64C, "N
 /** A game against the bot and colour picked on the Play tab; afterwards it can be reviewed. */
 @Composable
 fun BotScreen() {
-    val bot = if (AppModel.botLevel >= bots.size) engineBot else bots[AppModel.botLevel]
+    val bot = bots.getOrNull(AppModel.botLevel) ?: engineBot
     BotGame(bot, AppModel.botWhite) { AppModel.screen = Screen.PlayTab }
 }
 
