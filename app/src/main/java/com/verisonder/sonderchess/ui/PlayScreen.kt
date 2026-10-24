@@ -629,6 +629,32 @@ internal fun ToolButton(
                     drawPath(p, col, style = st)
                     drawCircle(col, 3f * u, o(12f, 12f), style = st)
                 }
+                "options" -> {
+                    for (y in listOf(6f, 12f, 18f)) {
+                        drawCircle(col, 1.4f * u, o(5f, y))
+                        line(9f to y, 20f to y)
+                    }
+                }
+                "flag" -> {
+                    line(6f to 21f, 6f to 3.5f)
+                    val p = Path()
+                    p.moveTo(6f * u, 4f * u)
+                    p.quadraticTo(10f * u, 2f * u, 13f * u, 4.5f * u)
+                    p.quadraticTo(16f * u, 7f * u, 19.5f * u, 5f * u)
+                    p.lineTo(19.5f * u, 13f * u)
+                    p.quadraticTo(16f * u, 15f * u, 13f * u, 12.5f * u)
+                    p.quadraticTo(10f * u, 10f * u, 6f * u, 12f * u)
+                    drawPath(p, col, style = st)
+                }
+                "undo" -> {
+                    line(9f to 5f, 4f to 10f, 9f to 15f)
+                    val p = Path()
+                    p.moveTo(4.5f * u, 10f * u)
+                    p.lineTo(14f * u, 10f * u)
+                    p.quadraticTo(20f * u, 10f * u, 20f * u, 15.5f * u)
+                    p.quadraticTo(20f * u, 20f * u, 14f * u, 20f * u)
+                    drawPath(p, col, style = st)
+                }
                 "retry" -> {
                     drawArc(col, -60f, 300f, false, o(4.5f, 4.5f), Size(15f * u, 15f * u), style = st)
                     line(19.5f to 3.5f, 19.5f to 8.6f, 14.4f to 8.6f)

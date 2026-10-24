@@ -2,6 +2,7 @@ package com.verisonder.sonderchess.ui
 
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -149,17 +150,30 @@ private fun BotGame(
     var engine by remember { mutableStateOf<Stockfish?>(null) }
     var resigned by remember { mutableStateOf(false) }
     var showEnd by remember { mutableStateOf(false) }
+    // Looking back through the game: the position shown, or null for the live one.
+    var viewing by remember { mutableStateOf<Int?>(null) }
+    var flipped by remember { mutableStateOf(!youWhite) }
+    var hint by remember { mutableStateOf<Move?>(null) }
+    var options by remember { mutableStateOf(false) }
+    var saying by remember { mutableStateOf(level.greeting) }
     val pos = positions.last()
-    val over = resigned || pos.legalMoves().isEmpty()
+    val draw = drawReason(positions)
+    val over = resigned || pos.legalMoves().isEmpty() || draw != null
     val botName = level.name
 
     LaunchedEffect(Unit) { engine = runCatching { Stockfish.start(context, threads = 1, hashMb = 16) }.getOrNull() }
     DisposableEffect(Unit) { onDispose { engine?.let { e -> thread { runCatching { e.stop() }.also { e.close() } } } } }
 
     fun play(m: Move) {
-        Sounds.play(Sounds.eventFor(positions.last(), m))
-        positions = positions + positions.last().play(m)
+        val before = positions.last()
+        val mine = before.white == youWhite
+        Sounds.play(Sounds.eventFor(before, m))
+        val after = before.play(m)
+        positions = positions + after
         moves = moves + m
+        hint = null
+        viewing = null
+        saying = botSays(level, before, m, after, mine, moves.size) ?: saying
     }
 
     // The bot's turn.
@@ -171,13 +185,24 @@ private fun BotGame(
         val m = uci?.let { runCatching { Move.fromUci(it) }.getOrNull() }?.takeIf { it in pos.legalMoves() }
         if (m != null && !resigned) play(m)
     }
-    LaunchedEffect(over) { if (over) showEnd = true }
+    LaunchedEffect(over) {
+        if (over) {
+            showEnd = true
+            saying =
+                when {
+                    resigned -> "Good game! Want to try again?"
+                    draw != null -> "A draw! Well held."
+                    pos.white == youWhite -> "Checkmate! That one was mine."
+                    else -> "You got me. Well played!"
+                }
+        }
+    }
 
     val result =
         when {
             resigned -> -1
             pos.isCheckmate() -> if (pos.white == youWhite) -1 else 1
-            pos.legalMoves().isEmpty() -> 0
+            pos.legalMoves().isEmpty() || draw != null -> 0
             else -> null
         }
 
@@ -192,6 +217,7 @@ private fun BotGame(
         val how =
             when {
                 resigned -> "$botName won by resignation"
+                draw != null -> "Game drawn by $draw"
                 result == 0 -> "Game drawn by stalemate"
                 result == 1 -> "$me won by checkmate"
                 else -> "$botName won by checkmate"
@@ -209,60 +235,103 @@ private fun BotGame(
         )
     }
 
+    val shownPly = viewing ?: moves.size
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             TopBar("vs $botName", onBack = { AppModel.screen = Screen.PlayTab })
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                BotFace(level, 44.dp)
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(botName, style = body(16, FontWeight.Bold))
-                    Text(level.rating, style = body(13, color = C.faint))
+            Spacer(Modifier.weight(1f))
+            // The bot talks above the board, like the coach in a review.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                BotFace(level, 64.dp)
+                Spacer(Modifier.width(4.dp))
+                Bubble(Modifier.weight(1f)) {
+                    androidx.compose.animation.AnimatedContent(
+                        saying,
+                        transitionSpec = {
+                            (
+                                androidx.compose.animation.fadeIn(tween(160)) +
+                                    androidx.compose.animation.scaleIn(initialScale = 0.94f)
+                            ).togetherWith(androidx.compose.animation.fadeOut(tween(100)))
+                        },
+                        label = "say",
+                    ) { line ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(line, style = body(15, FontWeight.Medium, C.bubbleText), modifier = Modifier.weight(1f))
+                            if (!over && pos.white != youWhite && viewing == null) ThinkingDots()
+                        }
+                    }
                 }
-                Spacer(Modifier.weight(1f))
-                if (!over && pos.white != youWhite) ThinkingDots()
             }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 InteractiveBoard(
-                    position = pos,
-                    flipped = !youWhite,
-                    last = moves.lastOrNull(),
-                    arrows = emptyList(),
+                    position = positions[shownPly],
+                    flipped = flipped,
+                    last = moves.getOrNull(shownPly - 1),
+                    arrows = listOfNotNull(hint),
                     modifier = Modifier.size(maxWidth),
-                    enabled = !over && pos.white == youWhite && engine != null,
+                    enabled = !over && viewing == null && pos.white == youWhite && engine != null,
                     onMove = ::play,
                 )
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(AppModel.username ?: "You", youWhite, 40.dp, AppModel.profile?.avatar)
-                Spacer(Modifier.width(10.dp))
-                Text(AppModel.username ?: "You", style = body(16, FontWeight.Bold))
-            }
             Spacer(Modifier.weight(1f))
+            BotMoves(positions, moves, shownPly) { viewing = if (it >= moves.size) null else it }
             Row(
-                Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 6.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (over) {
-                    GreenButton("Game Review", Modifier.weight(1f), height = 50.dp) {
+                    ToolButton("Options", "options") { options = true }
+                    GreenButton("Game Review", Modifier.weight(1f).padding(horizontal = 8.dp), height = 48.dp) {
                         AppModel.reviewPlayed(finishedGame(), youWhite, botName)
                     }
-                    TextButton(onClick = onNewGame) { Text("New Game", style = body(15, FontWeight.Bold, C.dim)) }
+                    ToolButton("New", "retry") { onNewGame() }
                 } else {
+                    ToolButton("Options", "options") { options = true }
+                    // Before the second move there is nothing to lose: Abort just leaves.
+                    if (moves.size < 2) {
+                        ToolButton("Abort", "flag") { onNewGame() }
+                    } else {
+                        ToolButton("Resign", "flag") { resigned = true }
+                    }
+                    ToolButton("Hint", "hint", enabled = pos.white == youWhite && viewing == null && engine != null) {
+                        val e = engine ?: return@ToolButton
+                        thread {
+                            val uci = runCatching { e.bestMove(pos.fen(), 20, null, 400) }.getOrNull()
+                            hint = uci?.let { runCatching { Move.fromUci(it) }.getOrNull() }
+                            saying = "Look at the arrow. That's what I'd play."
+                        }
+                    }
                     // Take back your last move (and the bot's answer to it).
-                    TextButton(
-                        enabled = moves.isNotEmpty() && pos.white == youWhite,
-                        onClick = {
-                            val back = if (moves.size >= 2) 2 else 1
-                            positions = positions.dropLast(back)
-                            moves = moves.dropLast(back)
-                        },
-                    ) { Text("Undo", style = body(15, FontWeight.Bold, C.dim)) }
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { resigned = true }) { Text("Resign", style = body(15, FontWeight.Bold, C.error)) }
+                    ToolButton("Undo", "undo", enabled = moves.isNotEmpty() && pos.white == youWhite) {
+                        val back = if (moves.size >= 2) 2 else 1
+                        positions = positions.dropLast(back)
+                        moves = moves.dropLast(back)
+                        viewing = null
+                        hint = null
+                        saying = "Take your time. Try another one."
+                    }
                 }
             }
+        }
+
+        if (options) {
+            BotOptions(
+                onFlip = {
+                    flipped = !flipped
+                    options = false
+                },
+                onShare = {
+                    options = false
+                    val send =
+                        android.content
+                            .Intent(android.content.Intent.ACTION_SEND)
+                            .setType("text/plain")
+                            .putExtra(android.content.Intent.EXTRA_TEXT, finishedGame().toPgn())
+                    context.startActivity(android.content.Intent.createChooser(send, "Share game"))
+                },
+                onClose = { options = false },
+            )
         }
 
         // The end: a card that rises in over the board, like the game page's result card.
@@ -357,6 +426,165 @@ private fun ThinkingDots() {
                     }.clip(androidx.compose.foundation.shape.CircleShape)
                     .background(if (on) C.text else C.faint),
             )
+        }
+    }
+}
+
+/** Why the game is drawn (repetition, fifty moves, too little material), or null if it isn't. */
+private fun drawReason(positions: List<Position>): String? {
+    val now = positions.last()
+    val key =
+        now
+            .fen()
+            .split(' ')
+            .take(4)
+            .joinToString(" ")
+    if (positions.count {
+            it
+                .fen()
+                .split(' ')
+                .take(4)
+                .joinToString(" ") == key
+        } >= 3
+    ) {
+        return "repetition"
+    }
+    if ((
+            now
+                .fen()
+                .split(' ')
+                .getOrNull(4)
+                ?.toIntOrNull() ?: 0
+        ) >= 100
+    ) {
+        return "the 50-move rule"
+    }
+    val rest = (0 until 64).map { now[it] }.filter { it != 0 && kotlin.math.abs(it) != com.verisonder.sonderchess.core.Piece.KING }
+    val minorOnly =
+        rest.all {
+            kotlin.math.abs(it) == com.verisonder.sonderchess.core.Piece.KNIGHT ||
+                kotlin.math.abs(it) == com.verisonder.sonderchess.core.Piece.BISHOP
+        }
+    if (rest.isEmpty() || (rest.size == 1 && minorOnly)) return "insufficient material"
+    return null
+}
+
+/** What the bot says after a move, or null to keep its last line. */
+private fun botSays(
+    bot: Bot,
+    before: Position,
+    m: Move,
+    after: Position,
+    mine: Boolean,
+    n: Int,
+): String? {
+    fun pick(vararg lines: String) = lines[n % lines.size]
+    return when {
+        after.legalMoves().isEmpty() -> null
+        after.inCheck() && mine -> pick("Whoa, check! Let me think…", "Hey, my king!", "Check? Rude.")
+        after.inCheck() -> pick("Check!", "Your king looks a bit nervous.", "Check. Your move.")
+        before.isCapture(m) && mine -> pick("Hey, I was using that!", "Ouch.", "Nice grab.", "I didn't need that one anyway.")
+        before.isCapture(m) -> pick("Mine now!", "Thanks for that!", "Yoink.", "I'll take that.")
+        before.isCastle(m) && !mine -> "Safety first."
+        n == 1 || n == 2 -> bot.greeting
+        else -> null
+    }
+}
+
+/** The moves so far in one centred line, with arrows to step back and forth. */
+@Composable
+private fun BotMoves(
+    positions: List<Position>,
+    moves: List<Move>,
+    ply: Int,
+    onPick: (Int) -> Unit,
+) {
+    val state =
+        androidx.compose.foundation.lazy
+            .rememberLazyListState()
+    LaunchedEffect(ply, moves.size) { if (moves.isNotEmpty()) state.animateScrollToItem(maxOf(0, ply - 3)) }
+    Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "‹",
+            style =
+                display(
+                    30,
+                    if (ply >
+                        0
+                    ) {
+                        C.dim
+                    } else {
+                        C.faint
+                    },
+                ),
+            modifier = Modifier.clickable(enabled = ply > 0) { onPick(ply - 1) }.padding(horizontal = 16.dp),
+        )
+        androidx.compose.foundation.lazy.LazyRow(
+            state = state,
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            items(moves.size) { i ->
+                val before = positions[i]
+                val on = i + 1 == ply
+                Text(
+                    (if (before.white) "${before.fullmove}. " else "") + before.san(moves[i]),
+                    style = body(16, FontWeight.Bold, if (on) C.text else C.dim),
+                    modifier =
+                        Modifier
+                            .padding(horizontal = 2.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (on) C.panel2 else Color.Transparent)
+                            .clickable { onPick(i + 1) }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
+        }
+        Text(
+            "›",
+            style = display(30, if (ply < moves.size) C.dim else C.faint),
+            modifier = Modifier.clickable(enabled = ply < moves.size) { onPick(ply + 1) }.padding(horizontal = 16.dp),
+        )
+    }
+}
+
+/** The Options sheet: flip the board, share the game. */
+@Composable
+private fun BotOptions(
+    onFlip: () -> Unit,
+    onShare: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0x99000000))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .padding(24.dp)
+                .fillMaxWidth()
+                .appear(0, listOf("botoptions", remember { System.nanoTime() }))
+                .clip(RoundedCornerShape(14.dp))
+                .background(C.panel)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { },
+        ) {
+            Row(
+                Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Options", style = body(18, FontWeight.Bold), modifier = Modifier.weight(1f))
+                Text("✕", style = body(20, FontWeight.Bold, C.dim), modifier = Modifier.clickable(onClick = onClose).padding(4.dp))
+            }
+            for ((label, action) in listOf("Flip Board" to onFlip, "Share Game" to onShare)) {
+                Text(
+                    label,
+                    style = body(17, FontWeight.Bold),
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = action).padding(horizontal = 18.dp, vertical = 16.dp),
+                )
+            }
         }
     }
 }
