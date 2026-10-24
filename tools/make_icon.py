@@ -1,4 +1,4 @@
-"""Builds the SonderChess launcher icon: the Verisonder SR mark (blue S, white R) drawn like
+"""Builds the SonderChess launcher icon: the Verisonder SR mark (green S, white R) drawn like
 the app's pieces - a thick dark outline, a darker band low down for depth - standing together
 on one piece base, on the app's dark background.
 
@@ -14,7 +14,7 @@ S_PATH = MARK[0].split(" ", 1)[1]
 R_PATH = MARK[1].split(" ", 1)[1]
 
 OUTLINE = "#262421"
-S_FILL, S_SHADE = "#4FB0E6", "#2C83B8"
+S_FILL, S_SHADE = "#81B64C", "#5D8A33"
 R_FILL, R_SHADE = "#FFFFFF", "#D4D3D0"
 BASE_FILL, BASE_TOP = "#D4D3D0", "#F4F4F2"
 BG = "#383430"  # a touch lighter than the app background, so the dark piece outline still shows
