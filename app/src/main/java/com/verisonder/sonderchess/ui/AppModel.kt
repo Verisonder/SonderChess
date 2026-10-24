@@ -106,12 +106,12 @@ object AppModel {
     var pieces by mutableStateOf(Themes.pieces[0])
         private set
 
-    fun setBoard(t: BoardTheme) {
+    fun useBoard(t: BoardTheme) {
         board = t
         store.boardTheme = t.id
     }
 
-    fun setPieces(p: PieceSet) {
+    fun usePieces(p: PieceSet) {
         pieces = p
         store.pieceSet = p.id
     }
@@ -134,33 +134,33 @@ object AppModel {
     var backgroundVersion by mutableStateOf(0)
         private set
 
-    fun setSoundSet(id: String) {
+    fun useSoundSet(id: String) {
         soundSet = id
         store.soundSet = id
     }
 
-    fun setBackground(id: String) {
+    fun useBackground(id: String) {
         background = id
         store.background = id
         if (id == "custom") backgroundVersion++
     }
 
-    fun setCoordinates(v: Boolean) {
+    fun useCoordinates(v: Boolean) {
         coordinates = v
         store.coordinates = v
     }
 
-    fun setHighlightLast(v: Boolean) {
+    fun useHighlightLast(v: Boolean) {
         highlightLast = v
         store.highlightLast = v
     }
 
-    fun setShowArrows(v: Boolean) {
+    fun useShowArrows(v: Boolean) {
         showArrows = v
         store.showArrows = v
     }
 
-    fun setAnimation(v: Int) {
+    fun useAnimation(v: Int) {
         animation = v
         store.animation = v
     }
@@ -240,7 +240,7 @@ object AppModel {
     fun saveBackground(uri: android.net.Uri) {
         scope.launch(Dispatchers.IO) {
             val ok = Backgrounds.save(app, uri)
-            if (ok) withContext(Dispatchers.Main) { setBackground("custom") }
+            if (ok) withContext(Dispatchers.Main) { useBackground("custom") }
         }
     }
 

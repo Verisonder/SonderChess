@@ -138,7 +138,7 @@ private fun BoardTab() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(Themes.boards, key = { it.id }) { t ->
-            Swatch(selected = t.id == AppModel.board.id, onClick = { AppModel.setBoard(t) }) {
+            Swatch(selected = t.id == AppModel.board.id, onClick = { AppModel.useBoard(t) }) {
                 Canvas(Modifier.fillMaxSize()) {
                     val h = size.width / 2f
                     drawRect(t.light, Offset.Zero, Size(h, h))
@@ -161,7 +161,7 @@ private fun PiecesTab() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(Themes.pieces, key = { it.id }) { p ->
-            Swatch(selected = p.id == AppModel.pieces.id, onClick = { AppModel.setPieces(p) }) {
+            Swatch(selected = p.id == AppModel.pieces.id, onClick = { AppModel.usePieces(p) }) {
                 Box(Modifier.fillMaxSize().background(C.bar), contentAlignment = Alignment.Center) {
                     Image(painterResource(p.white[1]), p.name, Modifier.fillMaxSize().padding(5.dp))
                 }
@@ -191,7 +191,7 @@ private fun BackgroundTab() {
             }
         }
         items(Backgrounds.styles, key = { it.id }) { b ->
-            Swatch(selected = b.id == AppModel.background, onClick = { AppModel.setBackground(b.id) }) {
+            Swatch(selected = b.id == AppModel.background, onClick = { AppModel.useBackground(b.id) }) {
                 Box(Modifier.fillMaxSize().background(b.brush))
             }
         }
@@ -205,7 +205,7 @@ private fun SoundsTab() {
         items(Sounds.sets) { (id, name) ->
             val on = AppModel.soundSet == id
             Row(
-                Modifier.fillMaxWidth().height(64.dp).clickable { AppModel.setSoundSet(id) },
+                Modifier.fillMaxWidth().height(64.dp).clickable { AppModel.useSoundSet(id) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.width(40.dp), contentAlignment = Alignment.CenterStart) { if (on) CheckIcon() }
@@ -243,17 +243,17 @@ private fun MoreTab() {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         item {
             Spacer(Modifier.height(8.dp))
-            Toggle("Coordinates", "Letters and numbers on the board edge", AppModel.coordinates) { AppModel.setCoordinates(it) }
+            Toggle("Coordinates", "Letters and numbers on the board edge", AppModel.coordinates) { AppModel.useCoordinates(it) }
             Toggle(
                 "Highlight the last move",
                 "Colour the squares it moved between",
                 AppModel.highlightLast,
-            ) { AppModel.setHighlightLast(it) }
-            Toggle("Show best-move arrows", "On when a review opens", AppModel.showArrows) { AppModel.setShowArrows(it) }
+            ) { AppModel.useHighlightLast(it) }
+            Toggle("Show best-move arrows", "On when a review opens", AppModel.showArrows) { AppModel.useShowArrows(it) }
             Spacer(Modifier.height(14.dp))
             Text("Piece animation", style = body(16, FontWeight.Bold))
             Spacer(Modifier.height(8.dp))
-            SlidingSegments(listOf("Off", "Slow", "Normal", "Fast"), AppModel.animation, height = 40.dp) { AppModel.setAnimation(it) }
+            SlidingSegments(listOf("Off", "Slow", "Normal", "Fast"), AppModel.animation, height = 40.dp) { AppModel.useAnimation(it) }
             Spacer(Modifier.height(24.dp))
         }
     }
