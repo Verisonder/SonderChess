@@ -36,6 +36,9 @@ sealed interface Screen {
 
     data object Puzzles : Screen
 
+    /** The Play tab: bots, Stockfish and the custom board. */
+    data object PlayTab : Screen
+
     data object More : Screen
 
     /** The Review tab: paste a game link, profile link or PGN. */
@@ -116,8 +119,12 @@ object AppModel {
     /** Whether Stockfish was on last time the analysis board was open. */
     var playEngine = false
 
-    /** The bot strength picked last time. */
+    /** The opponent picked last time on the Play tab, and the colour choice (0 white, 1 random, 2 black). */
     var botLevel = 2
+    var botColour = 0
+
+    /** Whether you have White in the bot game being played. */
+    var botWhite = true
 
     /** The puzzles that come with the app (Lichess, CC0), read once. */
     private var puzzleBook: com.verisonder.sonderchess.core.PuzzleBook? = null

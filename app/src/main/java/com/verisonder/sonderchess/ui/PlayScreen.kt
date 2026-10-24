@@ -246,7 +246,7 @@ fun PlayScreen() {
             ?.let { runCatching { Move.fromUci(it.move) }.getOrNull() }
             ?.takeIf { it in pos.legalMoves() }
     Column(Modifier.fillMaxSize()) {
-        TopBar(if (mode == Mode.Edit) "Set Up Position" else "Analysis Board", onBack = { AppModel.screen = Screen.Home })
+        TopBar(if (mode == Mode.Edit) "Set Up Position" else "Analysis Board", onBack = { AppModel.screen = Screen.PlayTab })
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val boardSize = if (engineOn && mode == Mode.Play) maxWidth - 18.dp else maxWidth
             Row(Modifier.height(boardSize)) {

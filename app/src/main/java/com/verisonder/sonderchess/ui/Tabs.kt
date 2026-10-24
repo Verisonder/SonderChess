@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.BuildConfig
 
 /** The three pages with the bar along the bottom. */
-fun isTab(s: Screen) = s == Screen.Home || s == Screen.Puzzles || s == Screen.Paste || s == Screen.More
+fun isTab(s: Screen) = s == Screen.Home || s == Screen.PlayTab || s == Screen.Puzzles || s == Screen.Paste || s == Screen.More
 
 /**
  * Home, Puzzles and More, with the tab bar under them and, on Home, the big Play button
@@ -58,12 +57,11 @@ fun isTab(s: Screen) = s == Screen.Home || s == Screen.Puzzles || s == Screen.Pa
  */
 @Composable
 fun TabScaffold(current: Screen) {
-    var choosing by remember { mutableStateOf(false) }
-    if (choosing) PlayChoice { choosing = false }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             Crossfade(current, animationSpec = tween(180), label = "tab") { tab ->
                 when (tab) {
+                    Screen.PlayTab -> PlayTabScreen()
                     Screen.Puzzles -> PuzzlesScreen()
                     Screen.Paste -> PasteScreen()
                     Screen.More -> MoreScreen()
@@ -71,98 +69,7 @@ fun TabScaffold(current: Screen) {
                 }
             }
         }
-        if (current == Screen.Home) {
-            Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                GreenButton("Play", height = 58.dp) { choosing = true }
-            }
-        }
         TabBar(current)
-    }
-}
-
-/** What Play opens: a game against a bot, or the free board. */
-@Composable
-private fun PlayChoice(onClose: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onClose,
-        containerColor = C.panel,
-        title = { Text("Play", style = display(20)) },
-        text = {
-            Column {
-                val opened = remember { System.nanoTime() }
-                ChoiceRow(0, opened, "bot", "Play a Bot", "A game against Stockfish, from beginner to full strength") {
-                    onClose()
-                    AppModel.screen = Screen.Bot
-                }
-                ChoiceRow(1, opened, "board", "Custom Board", "Move both sides, set up any position, ask Stockfish") {
-                    onClose()
-                    AppModel.screen = Screen.Play
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onClose) { Text("Cancel", style = body(15, FontWeight.Bold, C.dim)) } },
-    )
-}
-
-@Composable
-private fun ChoiceRow(
-    index: Int,
-    opened: Long,
-    icon: String,
-    title: String,
-    detail: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .appear(index, listOf("choice", opened, index))
-            .padding(vertical = 5.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(C.panel2)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (icon == "bot") {
-            KindIcon("computer", 40.dp)
-        } else {
-            MiniBoard(Modifier.size(40.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = body(17, FontWeight.Bold))
-            Text(detail, style = body(13, color = C.faint))
-        }
-        Text("›", style = body(22, color = C.dim))
-    }
-}
-
-/** A tiny 4x4 board in your board colours, with a knight on it. */
-@Composable
-private fun MiniBoard(modifier: Modifier) {
-    val knight = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.KNIGHT]
-    Canvas(modifier.clip(RoundedCornerShape(6.dp))) {
-        val s = size.width / 4f
-        for (r in 0..3) {
-            for (c in 0..3) {
-                drawRect(
-                    if ((r + c) % 2 ==
-                        0
-                    ) {
-                        AppModel.board.light
-                    } else {
-                        AppModel.board.dark
-                    },
-                    Offset(c * s, r * s),
-                    Size(s, s),
-                )
-            }
-        }
-        knight?.run {
-            translate(s, s) { draw(Size(s * 2f, s * 2f)) }
-        }
     }
 }
 
@@ -170,9 +77,10 @@ private fun MiniBoard(modifier: Modifier) {
 private fun TabBar(current: Screen) {
     val index =
         when (current) {
-            Screen.Puzzles -> 1
-            Screen.Paste -> 2
-            Screen.More -> 3
+            Screen.PlayTab -> 1
+            Screen.Puzzles -> 2
+            Screen.Paste -> 3
+            Screen.More -> 4
             else -> 0
         }
     // A short green line glides over to the tab you pick.
@@ -183,7 +91,7 @@ private fun TabBar(current: Screen) {
         label = "tabline",
     )
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().background(C.bar)) {
-        val w = maxWidth / 4
+        val w = maxWidth / 5
         Box(
             Modifier
                 .padding(start = w * at + w * 0.3f)
@@ -194,9 +102,10 @@ private fun TabBar(current: Screen) {
         )
         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {
             Tab("Home", "home", index == 0, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
-            Tab("Puzzles", "puzzles", index == 1, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
-            Tab("Review", "paste", index == 2, Modifier.weight(1f)) { AppModel.screen = Screen.Paste }
-            Tab("More", "more", index == 3, Modifier.weight(1f)) { AppModel.screen = Screen.More }
+            Tab("Play", "play", index == 1, Modifier.weight(1f)) { AppModel.screen = Screen.PlayTab }
+            Tab("Puzzles", "puzzles", index == 2, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
+            Tab("Review", "paste", index == 3, Modifier.weight(1f)) { AppModel.screen = Screen.Paste }
+            Tab("More", "more", index == 4, Modifier.weight(1f)) { AppModel.screen = Screen.More }
         }
     }
 }
@@ -211,6 +120,7 @@ private fun Tab(
 ) {
     val col by animateColorAsState(if (on) C.text else Color(0xFF8B8987), tween(160), label = "tab")
     val pawn = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.PAWN]
+    val knight = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.KNIGHT]
     // The icon gives a little hop when its tab is picked.
     val hop =
         remember {
@@ -242,6 +152,17 @@ private fun Tab(
                 "home" -> {
                     // The pawn from your piece set, in the tab's colour.
                     pawn?.run {
+                        draw(
+                            size,
+                            colorFilter =
+                                androidx.compose.ui.graphics.ColorFilter
+                                    .tint(col),
+                        )
+                    }
+                }
+                "play" -> {
+                    // The knight from your piece set.
+                    knight?.run {
                         draw(
                             size,
                             colorFilter =

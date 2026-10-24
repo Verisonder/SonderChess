@@ -3,7 +3,6 @@ package com.verisonder.sonderchess.ui
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -18,16 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,89 +44,40 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.thread
 
-/** A bot strength: Stockfish's skill level, or a rating cap, and how long it thinks. */
-private data class BotLevel(
+/** A bot: its name, strength (Stockfish skill level or a rating cap), think time and look. */
+data class Bot(
     val name: String,
     val rating: String,
     val skill: Int,
     val elo: Int?,
     val thinkMs: Int,
+    val colour: Long,
+    val greeting: String,
 )
 
-private val levels =
+val bots =
     listOf(
-        BotLevel("Beginner", "≈ 400", 0, null, 80),
-        BotLevel("Easy", "≈ 800", 3, null, 150),
-        BotLevel("Medium", "≈ 1200", 7, null, 300),
-        BotLevel("Hard", "1600", 20, 1600, 500),
-        BotLevel("Expert", "2000", 20, 2000, 700),
-        BotLevel("Master", "2500", 20, 2500, 900),
-        BotLevel("Stockfish", "Full strength", 20, null, 1200),
+        Bot("Pebble", "400", 0, null, 80, 0xFF8BC34A, "Hi! I'm new at this too. Go easy on me?"),
+        Bot("Bolt", "800", 3, null, 150, 0xFFFFB74D, "Zap! I know how the pieces move. Mostly."),
+        Bot("Gizmo", "1200", 7, null, 300, 0xFF4FC3F7, "I've read a chess book. Let's see what you've got."),
+        Bot("Rook-E", "1600", 20, 1600, 500, 0xFFBA68C8, "Beep. Calculating your weaknesses…"),
+        Bot("Vector", "2000", 20, 2000, 700, 0xFFE57373, "I don't make many mistakes. Do you?"),
+        Bot("Titan", "2500", 20, 2500, 900, 0xFF90A4AE, "Masters fear me. Shall we begin?"),
     )
 
-/** Choose a bot and a colour, then play it; afterwards the game can be reviewed. */
+/** Stockfish itself, at full strength. */
+val engineBot = Bot("Stockfish", "Full strength", 20, null, 1200, 0xFF81B64C, "No mercy. No mistakes. Good luck.")
+
+/** A game against the bot and colour picked on the Play tab; afterwards it can be reviewed. */
 @Composable
 fun BotScreen() {
-    var level by remember { mutableIntStateOf(AppModel.botLevel) }
-    var colour by remember { mutableIntStateOf(0) } // 0 white, 1 random, 2 black
-    var playing by remember { mutableStateOf<Pair<BotLevel, Boolean>?>(null) }
-    val game = playing
-    if (game == null) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar("Play a Bot", onBack = { AppModel.screen = Screen.Home })
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                Text("Strength", style = body(13, FontWeight.Bold, C.faint), modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
-                for ((i, l) in levels.withIndex()) {
-                    val on = i == level
-                    val edge by androidx.compose.animation.animateColorAsState(if (on) C.green else C.panel, tween(180), label = "edge")
-                    val lift by androidx.compose.animation.core
-                        .animateFloatAsState(if (on) 1.02f else 1f, tween(180), label = "lift")
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .appear(i, "bot" to i)
-                            .graphicsLayer {
-                                scaleX = lift
-                                scaleY = lift
-                            }.padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(C.panel)
-                            .border(2.dp, edge, RoundedCornerShape(10.dp))
-                            .clickable { level = i }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Coach(36.dp, reactTo = if (on) i else null)
-                        Spacer(Modifier.width(12.dp))
-                        Text(l.name, style = body(16, FontWeight.Bold), modifier = Modifier.weight(1f))
-                        Text(l.rating, style = body(14, FontWeight.Bold, C.faint))
-                    }
-                }
-                Text("You play", style = body(13, FontWeight.Bold, C.faint), modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
-                SlidingSegments(listOf("White", "Random", "Black"), colour, track = C.panel, pill = C.panel2) { colour = it }
-                Spacer(Modifier.height(16.dp))
-            }
-            Column(Modifier.padding(16.dp)) {
-                GreenButton("Play", height = 56.dp) {
-                    AppModel.botLevel = level
-                    val white =
-                        when (colour) {
-                            0 -> true
-                            2 -> false
-                            else -> Math.random() < 0.5
-                        }
-                    playing = levels[level] to white
-                }
-            }
-        }
-    } else {
-        BotGame(game.first, game.second) { playing = null }
-    }
+    val bot = if (AppModel.botLevel >= bots.size) engineBot else bots[AppModel.botLevel]
+    BotGame(bot, AppModel.botWhite) { AppModel.screen = Screen.PlayTab }
 }
 
 @Composable
 private fun BotGame(
-    level: BotLevel,
+    level: Bot,
     youWhite: Boolean,
     onNewGame: () -> Unit,
 ) {
@@ -142,7 +89,7 @@ private fun BotGame(
     var showEnd by remember { mutableStateOf(false) }
     val pos = positions.last()
     val over = resigned || pos.legalMoves().isEmpty()
-    val botName = "${level.name} Bot"
+    val botName = level.name
 
     LaunchedEffect(Unit) { engine = runCatching { Stockfish.start(context, threads = 1, hashMb = 16) }.getOrNull() }
     DisposableEffect(Unit) { onDispose { engine?.let { e -> thread { runCatching { e.stop() }.also { e.close() } } } } }
@@ -202,9 +149,9 @@ private fun BotGame(
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            TopBar("vs $botName", onBack = { AppModel.screen = Screen.Home })
+            TopBar("vs $botName", onBack = { AppModel.screen = Screen.PlayTab })
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Coach(40.dp, reactTo = moves.size)
+                BotFace(level, 44.dp)
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text(botName, style = body(16, FontWeight.Bold))
