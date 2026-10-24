@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -432,7 +431,10 @@ private fun StatsRow(p: Profile) {
                 Modifier
                     .size(118.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(C.panel2)
+                    .background(Color(0xFF2A2825))
+                    .padding(bottom = 3.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF433F3C), Color(0xFF383532))))
                     .padding(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -688,8 +690,8 @@ fun KindIcon(
                 drawLine(C.bg, o(9.5f, 16f), o(14.5f, 16f), 1.6f * u, StrokeCap.Round)
             }
             "blitz" -> {
-                // A leaning lightning bolt, yellow on top, orange below.
-                val p =
+                // Lightning bolt: lit yellow at the top fading to orange, darker right-hand facet.
+                val bolt =
                     Path().apply {
                         moveTo(17f * u, 1f * u)
                         lineTo(3.5f * u, 14f * u)
@@ -699,53 +701,119 @@ fun KindIcon(
                         lineTo(13.6f * u, 8.6f * u)
                         close()
                     }
-                drawPath(p, Color(0xFFFFC21F))
-                clipRect(top = 13.2f * u) { drawPath(p, Color(0xFFF59E1B)) }
+                translate(0.6f * u, 0.8f * u) { drawPath(bolt, Color(0x40000000)) }
+                drawPath(
+                    bolt,
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(Color(0xFFFFE36B), Color(0xFFFFC21F), Color(0xFFF08A12)),
+                        o(10f, 1f),
+                        o(13f, 23f),
+                    ),
+                )
+                val facet =
+                    Path().apply {
+                        moveTo(10.8f * u, 14f * u)
+                        lineTo(7f * u, 23f * u)
+                        lineTo(21f * u, 8.6f * u)
+                        lineTo(16.5f * u, 8.6f * u)
+                        close()
+                    }
+                drawPath(facet, Color(0x22000000))
+                drawLine(Color(0x99FFFFFF), o(15.2f, 3.6f), o(7.2f, 12.2f), 1.1f * u, StrokeCap.Round)
             }
             "bullet" -> {
-                // A fat gold bullet flying up and to the right, with speed streaks.
-                drawLine(Color(0xFF8B8987), o(2f, 20f), o(6f, 16f), 1.5f * u, StrokeCap.Round)
-                drawLine(Color(0xFF8B8987), o(4f, 22f), o(8f, 18f), 1.5f * u, StrokeCap.Round)
+                // A rounded gold bullet in flight: shaded body, shiny edge, darker band, speed streaks.
+                drawPath(
+                    Path().apply {
+                        moveTo(1.5f * u, 19.5f * u)
+                        lineTo(7.5f * u, 14.5f * u)
+                        lineTo(8.5f * u, 16f * u)
+                        close()
+                    },
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(Color(0x00807C78), Color(0xCC807C78)),
+                        o(1.5f, 19.5f),
+                        o(8f, 15f),
+                    ),
+                )
+                drawPath(
+                    Path().apply {
+                        moveTo(4.5f * u, 22.5f * u)
+                        lineTo(9.5f * u, 17.5f * u)
+                        lineTo(10.5f * u, 19f * u)
+                        close()
+                    },
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(Color(0x00807C78), Color(0xCC807C78)),
+                        o(4.5f, 22.5f),
+                        o(10f, 18f),
+                    ),
+                )
                 withTransform({ rotate(45f, o(12f, 12f)) }) {
                     val body =
                         Path().apply {
-                            moveTo(6.8f * u, 18.5f * u)
-                            lineTo(6.8f * u, 11f * u)
-                            cubicTo(6.8f * u, 6f * u, 9.5f * u, 2.5f * u, 12f * u, 2.5f * u)
-                            cubicTo(14.5f * u, 2.5f * u, 17.2f * u, 6f * u, 17.2f * u, 11f * u)
-                            lineTo(17.2f * u, 18.5f * u)
+                            moveTo(6.6f * u, 18.5f * u)
+                            lineTo(6.6f * u, 11f * u)
+                            cubicTo(6.6f * u, 6f * u, 9.4f * u, 2.3f * u, 12f * u, 2.3f * u)
+                            cubicTo(14.6f * u, 2.3f * u, 17.4f * u, 6f * u, 17.4f * u, 11f * u)
+                            lineTo(17.4f * u, 18.5f * u)
                             close()
                         }
-                    drawPath(body, Color(0xFFF2B925))
-                    // Shine on one side, darker base.
-                    drawLine(Color(0xFFFFE28F), o(9.4f, 7.5f), o(9.4f, 14f), 1.8f * u, StrokeCap.Round)
-                    drawRect(
-                        Color(0xFFC98E12),
-                        o(6.8f, 16.4f),
-                        androidx.compose.ui.geometry
-                            .Size(10.4f * u, 2.1f * u),
+                    translate(0.9f * u, 0f) { drawPath(body, Color(0x40000000)) }
+                    drawPath(
+                        body,
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            listOf(Color(0xFFFFE27A), Color(0xFFF6C12E), Color(0xFFD99A14)),
+                            6.6f * u,
+                            17.4f * u,
+                        ),
                     )
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            listOf(Color(0xFFE7AE22), Color(0xFFB57A0C)),
+                            6.6f * u,
+                            17.4f * u,
+                        ),
+                        o(6.6f, 14.6f),
+                        androidx.compose.ui.geometry
+                            .Size(10.8f * u, 1.9f * u),
+                    )
+                    drawLine(Color(0xB3FFFFFF), o(9f, 7f), o(8.6f, 13.2f), 1.5f * u, StrokeCap.Round)
                 }
             }
             "daily" -> {
-                // Sun: pointed rays, golden disc, bright centre.
-                val ray = Color(0xFFF5A623)
+                // Sun: wavy rays and a glowing disc, lit from the top left.
+                val rays = Path()
                 for (i in 0 until 12) {
-                    val a = Math.toRadians(i * 30.0)
-                    val a1 = Math.toRadians(i * 30.0 - 11.0)
-                    val a2 = Math.toRadians(i * 30.0 + 11.0)
-                    val p =
-                        Path().apply {
-                            moveTo(12f * u + (11.5f * u * Math.cos(a)).toFloat(), 12f * u + (11.5f * u * Math.sin(a)).toFloat())
-                            lineTo(12f * u + (7f * u * Math.cos(a1)).toFloat(), 12f * u + (7f * u * Math.sin(a1)).toFloat())
-                            lineTo(12f * u + (7f * u * Math.cos(a2)).toFloat(), 12f * u + (7f * u * Math.sin(a2)).toFloat())
-                            close()
-                        }
-                    drawPath(p, ray)
+                    val a = Math.toRadians(i * 30.0 - 90.0)
+                    val a1 = Math.toRadians(i * 30.0 - 90.0 - 13.0)
+                    val a2 = Math.toRadians(i * 30.0 - 90.0 + 13.0)
+                    rays.moveTo(12f * u + (11.6f * u * Math.cos(a)).toFloat(), 12f * u + (11.6f * u * Math.sin(a)).toFloat())
+                    rays.lineTo(12f * u + (7.2f * u * Math.cos(a1)).toFloat(), 12f * u + (7.2f * u * Math.sin(a1)).toFloat())
+                    rays.lineTo(12f * u + (7.2f * u * Math.cos(a2)).toFloat(), 12f * u + (7.2f * u * Math.sin(a2)).toFloat())
+                    rays.close()
                 }
-                drawCircle(Color(0xFFFFC52E), 7.4f * u, o(12f, 12f))
-                drawCircle(Color(0xFFFFE07A), 5f * u, o(12f, 12f))
-                drawCircle(Color(0xFFFFF1BF), 2.4f * u, o(11f, 11f))
+                translate(0.5f * u, 0.7f * u) {
+                    drawPath(rays, Color(0x33000000))
+                    drawCircle(Color(0x33000000), 8.3f * u, o(12f, 12f))
+                }
+                val gold =
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(Color(0xFFFFD43B), Color(0xFFF2A51A)),
+                        o(4f, 3f),
+                        o(20f, 21f),
+                    )
+                drawPath(rays, gold)
+                drawCircle(gold, 8.3f * u, o(12f, 12f))
+                drawCircle(
+                    androidx.compose.ui.graphics.Brush.radialGradient(
+                        listOf(Color(0xFFFFFBE0), Color(0xFFFFE58A), Color(0xFFFFCC3D)),
+                        o(11f, 11f),
+                        6.2f * u,
+                    ),
+                    6f * u,
+                    o(12f, 12f),
+                )
             }
             "puzzles" -> {
                 val c = Color(0xFFF38A3D)
@@ -777,37 +845,58 @@ fun KindIcon(
                 drawLine(C.dim, o(8.5f, 17f), o(13f, 17f), 1.8f * u, StrokeCap.Round)
             }
             else -> {
-                // Rapid (and live games of unknown speed): a solid green stopwatch.
-                val g = Color(0xFF81B64C)
-                val gd = Color(0xFF5D8F33)
+                // Rapid (and live games of unknown speed): a green stopwatch with depth.
+                drawCircle(Color(0x40000000), 9.4f * u, o(12.5f, 14.8f))
                 drawRoundRect(
-                    g,
-                    o(10f, 1.5f),
+                    androidx.compose.ui.graphics.Brush
+                        .verticalGradient(listOf(Color(0xFFA5D86E), Color(0xFF6B9E3C)), 1.5f * u, 4.2f * u),
+                    o(9.6f, 1.5f),
                     androidx.compose.ui.geometry
-                        .Size(4f * u, 2.6f * u),
-                    androidx.compose.ui.geometry.CornerRadius(
-                        1f * u,
-                    ),
+                        .Size(4.8f * u, 2.7f * u),
+                    androidx.compose.ui.geometry
+                        .CornerRadius(1.2f * u),
                 )
                 drawRect(
-                    gd,
-                    o(11.2f, 3.8f),
+                    Color(0xFF5D8F33),
+                    o(11.1f, 4f),
                     androidx.compose.ui.geometry
-                        .Size(1.6f * u, 2.2f * u),
+                        .Size(1.8f * u, 2.2f * u),
                 )
-                drawCircle(gd, 9.4f * u, o(12f, 14.6f))
-                drawCircle(g, 9.4f * u, o(12f, 14f))
-                drawCircle(Color(0xFFF3F3F0), 6.4f * u, o(12f, 14f))
-                // Needle, pointing a little left of twelve.
+                drawCircle(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(Color(0xFFA9DA72), Color(0xFF7DB247), Color(0xFF4F7F2A)),
+                        o(5f, 6f),
+                        o(19f, 22f),
+                    ),
+                    9.4f * u,
+                    o(12f, 14f),
+                )
+                drawCircle(Color(0x33000000), 6.9f * u, o(12f, 14.4f))
+                drawCircle(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(Color(0xFFFFFFFF), Color(0xFFE9E8E4), Color(0xFFCFCECA)),
+                        o(8f, 9f),
+                        o(16f, 20f),
+                    ),
+                    6.4f * u,
+                    o(12f, 14f),
+                )
                 val n =
                     Path().apply {
-                        moveTo(11.1f * u, 14.3f * u)
-                        lineTo(11.6f * u, 8.6f * u)
-                        lineTo(12.9f * u, 14.3f * u)
+                        moveTo(11f * u, 14.3f * u)
+                        lineTo(11.7f * u, 8.4f * u)
+                        lineTo(13f * u, 14.3f * u)
                         close()
                     }
-                drawPath(n, Color(0xFF6E6C69))
-                drawCircle(Color(0xFF6E6C69), 1.3f * u, o(12f, 14.2f))
+                drawPath(
+                    n,
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        listOf(Color(0xFF8B8987), Color(0xFF4E4C4A)),
+                        11f * u,
+                        13f * u,
+                    ),
+                )
+                drawCircle(Color(0xFF5E5C59), 1.4f * u, o(12f, 14.2f))
             }
         }
     }
