@@ -155,6 +155,8 @@ object ChessComApi {
                             blackRating = b.optInt("rating").takeIf { it > 0 },
                             whiteResult = w.optString("result"),
                             blackResult = b.optString("result"),
+                            whiteAccuracy = g.optJSONObject("accuracies")?.optDouble("white")?.takeIf { !it.isNaN() },
+                            blackAccuracy = g.optJSONObject("accuracies")?.optDouble("black")?.takeIf { !it.isNaN() },
                         )
                     }
                 }.sortedByDescending { it.endTime }
