@@ -1,6 +1,14 @@
 package com.verisonder.sonderchess.ui
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,13 +70,11 @@ fun ReviewScreen(
     var showBest by remember { mutableStateOf(false) }
     var arrows by rememberSaveable { mutableStateOf(true) }
     var flipped by rememberSaveable(o.saved.id) { mutableStateOf(!o.saved.meWhite) }
-    var forward by remember { mutableStateOf(true) }
     val context = LocalContext.current
     val last = r.game.moves.size - 1
 
     fun go(p: Int) {
         val n = p.coerceIn(-1, last)
-        forward = n == ply + 1
         showBest = false
         ply = n
     }
@@ -125,47 +131,18 @@ fun ReviewScreen(
             Modifier.fillMaxWidth().heightIn(min = 112.dp).padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Coach(56.dp)
+            Coach(56.dp, reactTo = ply)
             Spacer(Modifier.width(4.dp))
             Bubble(Modifier.weight(1f)) {
-                if (mr == null) {
-                    Text(
-                        r.opening?.let { "This game opened with the $it. Tap next to step through it." }
-                            ?: "Tap next to step through the game.",
-                        style = body(14, FontWeight.Medium, C.bubbleText),
-                    )
-                } else {
-                    val words =
-                        if (showingBest) {
-                            Explain.Words("${mr.bestSan} is best", "This is what the engine would have played.")
-                        } else {
-                            Explain.move(r, ply, mr.white == o.saved.meWhite)
-                        }
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            LabelIcon(boardLabel ?: mr.label, 20.dp)
-                            Spacer(Modifier.width(6.dp))
-                            val shownSan = if (showingBest) mr.bestSan.orEmpty() else mr.san
-                            val moverWhite = mr.white
-                            Text(
-                                figurine(shownSan, moverWhite) + words.headline.removePrefix(shownSan),
-                                style = body(16, FontWeight.Bold, C.bubbleText),
-                                modifier = Modifier.weight(1f),
-                            )
-                            val ev = if (showingBest) r.evals[ply] else evalNow
-                            val over = if (!showingBest && ply == last && positions.last().isCheckmate()) r.game.result else null
-                            Box(
-                                Modifier
-                                    .clip(
-                                        RoundedCornerShape(4.dp),
-                                    ).background(Color(0xFFEEEEEE))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            ) { Text(evalText(ev, over), style = body(12, FontWeight.Bold, C.bubbleText)) }
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(words.line, style = body(14, color = C.bubbleText))
-                    }
-                }
+                AnimatedContent(
+                    targetState = ply to showingBest,
+                    transitionSpec = {
+                        (fadeIn(tween(180, delayMillis = 60)) + scaleIn(tween(220, delayMillis = 60), initialScale = 0.94f))
+                            .togetherWith(fadeOut(tween(90)))
+                            .using(SizeTransform(clip = false))
+                    },
+                    label = "coach",
+                ) { (p, best) -> BubbleBody(o, positions, p, best) }
             }
         }
         // Board with the eval bar.
@@ -179,8 +156,6 @@ fun ReviewScreen(
                     label = boardLabel,
                     arrows = boardArrows,
                     flipped = flipped,
-                    animateKey = ply * 2 + if (showingBest) 1 else 0,
-                    animate = forward || showingBest,
                     modifier =
                         Modifier.size(boardSize).pointerInput(ply) {
                             var dx = 0f
@@ -213,7 +188,6 @@ fun ReviewScreen(
                 enabled = mr != null && bestMove != null && mr.label != Label.Best && mr.label != Label.Book,
             ) {
                 showBest = !showBest
-                forward = true
             }
             BarButton("Share", on = false, enabled = true) {
                 val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.game.toPgn())
@@ -247,7 +221,7 @@ private fun MoveStrip(
                 Row(
                     Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(if (on) C.panel2 else Color.Transparent)
+                        .background(chipBg(on))
                         .clickable { onPick(i) }
                         .padding(horizontal = 6.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -391,4 +365,55 @@ private fun FlipIcon() {
         drawLine(C.dim, Offset(size.width * 0.7f, size.height * 0.9f), Offset(size.width * 0.7f, size.height * 0.1f), w, StrokeCap.Round)
         drawLine(C.dim, Offset(size.width * 0.7f, size.height * 0.9f), Offset(size.width * 0.9f, size.height * 0.68f), w, StrokeCap.Round)
     }
+}
+
+/** What the coach says for move [p] (or the engine's best move there when [best]). */
+@Composable
+private fun BubbleBody(
+    o: Opened,
+    positions: List<Position>,
+    p: Int,
+    best: Boolean,
+) {
+    val r = o.review
+    val mr = if (p >= 0) r.moves[p] else null
+    if (mr == null) {
+        Text(
+            r.opening?.let { "This game opened with the $it. Tap next to step through it." }
+                ?: "Tap next to step through the game.",
+            style = body(14, FontWeight.Medium, C.bubbleText),
+        )
+        return
+    }
+    val words =
+        if (best) {
+            Explain.Words("${mr.bestSan} is best", "This is what the engine would have played.")
+        } else {
+            Explain.move(r, p, mr.white == o.saved.meWhite)
+        }
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LabelIcon(if (best) Label.Best else mr.label, 20.dp)
+            Spacer(Modifier.width(6.dp))
+            val shownSan = if (best) mr.bestSan.orEmpty() else mr.san
+            Text(
+                figurine(shownSan, mr.white) + words.headline.removePrefix(shownSan),
+                style = body(16, FontWeight.Bold, C.bubbleText),
+                modifier = Modifier.weight(1f),
+            )
+            val ev = if (best) r.evals[p] else r.evals[p + 1]
+            val over = if (!best && p == r.moves.size - 1 && positions.last().isCheckmate()) r.game.result else null
+            Box(
+                Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFFEEEEEE)).padding(horizontal = 6.dp, vertical = 2.dp),
+            ) { Text(evalText(ev, over), style = body(12, FontWeight.Bold, C.bubbleText)) }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(words.line, style = body(14, color = C.bubbleText))
+    }
+}
+
+@Composable
+private fun chipBg(on: Boolean): Color {
+    val c by animateColorAsState(if (on) C.panel2 else C.bg.copy(alpha = 0f), tween(180), label = "chip")
+    return c
 }

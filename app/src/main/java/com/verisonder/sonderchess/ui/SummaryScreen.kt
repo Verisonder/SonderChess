@@ -1,5 +1,8 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,16 +18,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.core.Explain
 import com.verisonder.sonderchess.core.Label
+import kotlin.math.roundToInt
 
 /** The first page after analysis: coach, graph, accuracy, label counts. */
 @Composable
@@ -58,15 +65,15 @@ fun SummaryScreen(o: Opened) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RowTitle("Accuracy")
-                ScoreBox("%.1f".format(r.accuracyWhite), true, Modifier.weight(1f))
+                CountedScore(r.accuracyWhite, true, Modifier.weight(1f), decimals = true)
                 Spacer(Modifier.width(28.dp))
-                ScoreBox("%.1f".format(r.accuracyBlack), false, Modifier.weight(1f))
+                CountedScore(r.accuracyBlack, false, Modifier.weight(1f), decimals = true)
             }
             Spacer(Modifier.height(14.dp))
             Box(Modifier.fillMaxWidth().height(1.dp).background(C.line))
             Spacer(Modifier.height(6.dp))
-            for (l in Label.entries) {
-                Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+            for ((i, l) in Label.entries.withIndex()) {
+                Row(Modifier.fillMaxWidth().height(36.dp).appear(i), verticalAlignment = Alignment.CenterVertically) {
                     RowTitle(l.title)
                     Count(r.count(true, l), l, Modifier.weight(1f))
                     Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) { LabelIcon(l, 22.dp) }
@@ -78,9 +85,9 @@ fun SummaryScreen(o: Opened) {
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RowTitle("Game Rating")
-                ScoreBox(r.rating(true).toString(), true, Modifier.weight(1f))
+                CountedScore(r.rating(true).toDouble(), true, Modifier.weight(1f), decimals = false)
                 Spacer(Modifier.width(28.dp))
-                ScoreBox(r.rating(false).toString(), false, Modifier.weight(1f))
+                CountedScore(r.rating(false).toDouble(), false, Modifier.weight(1f), decimals = false)
             }
             r.opening?.let {
                 Spacer(Modifier.height(14.dp))
@@ -122,11 +129,16 @@ private fun androidx.compose.foundation.layout.RowScope.PlayerCell(
 }
 
 @Composable
-private fun ScoreBox(
-    text: String,
+private fun CountedScore(
+    value: Double,
     white: Boolean,
     modifier: Modifier,
+    decimals: Boolean,
 ) {
+    // Counts up from zero the first time the summary shows.
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(value) { shown.animateTo(value.toFloat(), tween(900, delayMillis = 150, easing = FastOutSlowInEasing)) }
+    val text = if (decimals) "%.1f".format(shown.value) else (shown.value.toInt() / 50 * 50).toString()
     Box(
         modifier.height(44.dp).clip(RoundedCornerShape(6.dp)).background(if (white) C.bubble else C.panel2),
         contentAlignment = Alignment.Center,
@@ -139,10 +151,26 @@ private fun Count(
     l: Label,
     modifier: Modifier,
 ) {
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(
+        n,
+    ) { shown.animateTo(n.toFloat(), tween(500 + n * 25, delayMillis = 250 + l.ordinal * 45, easing = FastOutSlowInEasing)) }
+    val v = shown.value.roundToInt()
     Text(
-        n.toString(),
+        v.toString(),
         style = body(17, FontWeight.Bold, if (n == 0) Color(0xFF6E6C69) else l.colour()),
         modifier = modifier,
         textAlign = TextAlign.Center,
     )
+}
+
+/** Fades and slides in, each [index] a beat after the one before. */
+@Composable
+private fun Modifier.appear(index: Int): Modifier {
+    val t = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { t.animateTo(1f, tween(320, delayMillis = 120 + index * 45, easing = FastOutSlowInEasing)) }
+    return this.graphicsLayer {
+        alpha = t.value
+        translationY = (1f - t.value) * 14.dp.toPx()
+    }
 }

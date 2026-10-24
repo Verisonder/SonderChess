@@ -1,5 +1,7 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.R
+import com.verisonder.sonderchess.core.Position
 import com.verisonder.sonderchess.data.FetchedGame
 import com.verisonder.sonderchess.data.SavedGame
 import java.text.DateFormat
@@ -196,26 +199,35 @@ private fun HistoryRow(
 
 @Composable
 fun AnalysingScreen(s: Screen.Analysing) {
+    val progress by animateFloatAsState(if (s.total == 0) 0f else s.done.toFloat() / s.total, tween(250), label = "progress")
     Column(
-        Modifier.fillMaxSize().padding(32.dp),
+        Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Coach(88.dp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Coach(52.dp, reactTo = s.done / 20)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Analysing your game", style = display(18))
+                Text("${s.white} vs ${s.black}", style = body(13, color = C.dim))
+            }
+        }
         Spacer(Modifier.height(20.dp))
-        Text("Analysing your game", style = display(20))
-        Spacer(Modifier.height(6.dp))
-        Text("${s.white} vs ${s.black}", style = body(14, color = C.dim), textAlign = TextAlign.Center)
-        Spacer(Modifier.height(24.dp))
+        // The game replays as each position is analysed.
+        Box(Modifier.fillMaxWidth(0.82f).clip(RoundedCornerShape(6.dp))) {
+            ChessBoard(Position.fromFen(s.fen), last = null, label = null, arrows = emptyList(), flipped = false)
+        }
+        Spacer(Modifier.height(22.dp))
         LinearProgressIndicator(
-            progress = { if (s.total == 0) 0f else s.done.toFloat() / s.total },
+            progress = { progress },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
             color = C.green,
             trackColor = C.panel2,
         )
         Spacer(Modifier.height(10.dp))
         Text("Position ${s.done} of ${s.total}", style = body(13, color = C.faint))
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(20.dp))
         TextButton(onClick = { AppModel.cancel() }) { Text("Cancel", style = body(15, FontWeight.Bold, C.dim)) }
     }
 }

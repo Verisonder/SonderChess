@@ -2,13 +2,17 @@ package com.verisonder.sonderchess.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -34,6 +38,7 @@ import com.verisonder.sonderchess.core.Move
 import com.verisonder.sonderchess.core.Position
 import com.verisonder.sonderchess.core.fileOf
 import com.verisonder.sonderchess.core.rankOf
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -55,9 +60,55 @@ fun piecePainters(): Array<Painter?> {
     return out
 }
 
+/** One piece gliding between squares. */
+private data class Slide(
+    val piece: Int,
+    val from: Int,
+    val to: Int,
+)
+
+/** How to get from one position to the next on screen: glides, fade-outs, fade-ins. */
+private class BoardAnim(
+    val slides: List<Slide>,
+    val fadeOut: List<Pair<Int, Int>>,
+    val fadeIn: Set<Int>,
+)
+
+/**
+ * Works out the motion between any two positions: a piece that left one square and
+ * appears on another glides there (nearest match), captured pieces fade out, pieces that come
+ * back (stepping backwards) fade in. Handles one move, a jump of many moves, or "Best".
+ */
+private fun diff(
+    a: Position,
+    b: Position,
+): BoardAnim {
+    val gone = (0 until 64).filter { a[it] != 0 && a[it] != b[it] }.toMutableList()
+    val came = (0 until 64).filter { b[it] != 0 && b[it] != a[it] }
+    val slides = ArrayList<Slide>()
+    val fadeIn = HashSet<Int>()
+
+    fun dist(
+        x: Int,
+        y: Int,
+    ) = abs(fileOf(x) - fileOf(y)) + abs(rankOf(x) - rankOf(y))
+    for (t in came) {
+        val p = b[t]
+        val src = gone.filter { a[it] == p }.minByOrNull { dist(it, t) }
+        if (src != null) {
+            slides.add(Slide(p, src, t))
+            gone.remove(src)
+        } else {
+            fadeIn.add(t)
+        }
+    }
+    return BoardAnim(slides, gone.map { it to a[it] }, fadeIn)
+}
+
 /**
  * The board. [last] is the move that led here (tinted in [label]'s colour, badge on its
- * square); [arrows] are drawn on top (the engine's suggestion).
+ * square); [arrows] are drawn on top (the engine's suggestion). Any change of [position]
+ * animates: pieces glide, captures fade, then the badge pops and the arrow fades in.
  */
 @Composable
 fun ChessBoard(
@@ -66,19 +117,35 @@ fun ChessBoard(
     label: Label?,
     arrows: List<Move>,
     flipped: Boolean,
-    animateKey: Int,
-    animate: Boolean,
     modifier: Modifier = Modifier,
+    animate: Boolean = true,
 ) {
     val pieces = piecePainters()
     val tm = rememberTextMeasurer()
-    val slide = remember { Animatable(1f) }
-    LaunchedEffect(animateKey) {
-        if (animate && last != null) {
-            slide.snapTo(0f)
-            slide.animateTo(1f, tween(200, easing = FastOutSlowInEasing))
+    val key = position.fen()
+    val shown = remember { arrayOf(position) }
+    val glide = remember { Animatable(1f) }
+    val pop = remember { Animatable(1f) }
+    val fade = remember { Animatable(1f) }
+    var anim by remember { mutableStateOf<BoardAnim?>(null) }
+    LaunchedEffect(key) {
+        val from = shown[0]
+        shown[0] = position
+        if (animate && from.fen() != key) {
+            anim = diff(from, position)
+            pop.snapTo(0f)
+            fade.snapTo(0f)
+            glide.snapTo(0f)
+            val far = anim!!.slides.maxOfOrNull { abs(fileOf(it.to) - fileOf(it.from)) + abs(rankOf(it.to) - rankOf(it.from)) } ?: 1
+            glide.animateTo(1f, tween((170 + far * 12).coerceAtMost(280), easing = FastOutSlowInEasing))
+            anim = null
+            launch { fade.animateTo(1f, tween(220)) }
+            pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 520f))
         } else {
-            slide.snapTo(1f)
+            anim = null
+            glide.snapTo(1f)
+            pop.snapTo(1f)
+            fade.snapTo(1f)
         }
     }
     Canvas(modifier.fillMaxWidth().aspectRatio(1f)) {
@@ -91,36 +158,64 @@ fun ChessBoard(
             val y = if (flipped) r else 7 - r
             return Offset(x * s, y * s)
         }
-        // Squares and coordinates.
         for (sq in 0 until 64) {
             val light = (fileOf(sq) + rankOf(sq)) % 2 == 1
             drawRect(if (light) C.light else C.dark, origin(sq), Size(s, s))
         }
         if (last != null) {
-            val tint = (label?.colour() ?: Color(0xFFF7EC74)).copy(alpha = 0.5f)
+            val tint = (label?.colour() ?: Color(0xFFF7EC74)).copy(alpha = 0.5f * (0.35f + 0.65f * glide.value))
             drawRect(tint, origin(last.from), Size(s, s))
             drawRect(tint, origin(last.to), Size(s, s))
         }
         drawCoordinates(tm, s, flipped)
-        // Pieces; the moved one slides in.
+        val a = anim
+        val t = glide.value
+        val moving =
+            a
+                ?.slides
+                ?.map { it.to }
+                ?.toSet()
+                .orEmpty()
         for (sq in 0 until 64) {
             val p = position[sq]
-            if (p == 0) continue
+            if (p == 0 || sq in moving || (a != null && sq in a.fadeIn)) continue
             val painter = pieces[p + 6] ?: continue
-            var o = origin(sq)
-            if (last != null && sq == last.to && slide.value < 1f) {
-                val from = origin(last.from)
-                o = Offset(from.x + (o.x - from.x) * slide.value, from.y + (o.y - from.y) * slide.value)
-            }
+            val o = origin(sq)
             translate(o.x, o.y) { with(painter) { draw(Size(s, s)) } }
         }
-        for (a in arrows) drawArrow(origin(a.from), origin(a.to), s, isKnightJump(a))
-        if (last != null && label != null && slide.value >= 1f) {
+        if (a != null) {
+            for ((sq, p) in a.fadeOut) {
+                val painter = pieces[p + 6] ?: continue
+                val o = origin(sq)
+                translate(o.x, o.y) { with(painter) { draw(Size(s, s), alpha = 1f - t) } }
+            }
+            for (sq in a.fadeIn) {
+                val painter = pieces[position[sq] + 6] ?: continue
+                val o = origin(sq)
+                translate(o.x, o.y) { with(painter) { draw(Size(s, s), alpha = t) } }
+            }
+            for (sl in a.slides) {
+                val painter = pieces[sl.piece + 6] ?: continue
+                val f = origin(sl.from)
+                val o = origin(sl.to)
+                val x = f.x + (o.x - f.x) * t
+                val y = f.y + (o.y - f.y) * t
+                // Lifted a touch while it travels.
+                val lift = 1f + 0.08f * sin(Math.PI.toFloat() * t)
+                val sz = s * lift
+                translate(x - (sz - s) / 2f, y - (sz - s) / 2f) { with(painter) { draw(Size(sz, sz)) } }
+            }
+        }
+        if (a == null) {
+            for (ar in arrows) drawArrow(origin(ar.from), origin(ar.to), s, isKnightJump(ar), fade.value)
+        }
+        if (last != null && label != null && a == null && pop.value > 0.01f) {
             val o = origin(last.to)
             val r = s * 0.2f
             val cx = min(o.x + s - r * 0.35f, size.width - r)
             val cy = maxOf(o.y + r * 0.35f, r)
-            drawLabelIcon(label, Offset(cx, cy), r, tm)
+            val k = pop.value.coerceAtLeast(0f)
+            withTransform({ scale(k, k, Offset(cx, cy)) }) { drawLabelIcon(label, Offset(cx, cy), r, tm) }
         }
     }
 }
@@ -164,6 +259,7 @@ private fun DrawScope.drawArrow(
     toO: Offset,
     s: Float,
     knight: Boolean,
+    alpha: Float = 1f,
 ) {
     val half = s / 2f
     val a = Offset(fromO.x + half, fromO.y + half)
@@ -188,7 +284,7 @@ private fun DrawScope.drawArrow(
             for (i in 1 until points.size - 1) lineTo(points[i].x, points[i].y)
             lineTo(baseCenter.x, baseCenter.y)
         }
-    drawPath(path, C.arrow, style = Stroke(width = w, cap = StrokeCap.Butt, join = StrokeJoin.Miter))
+    drawPath(path, C.arrow, alpha = alpha, style = Stroke(width = w, cap = StrokeCap.Butt, join = StrokeJoin.Miter))
     val nx = -sin(ang)
     val ny = cos(ang)
     val tri =
@@ -198,7 +294,7 @@ private fun DrawScope.drawArrow(
             lineTo(baseCenter.x - nx * head * 0.62f, baseCenter.y - ny * head * 0.62f)
             close()
         }
-    drawPath(tri, C.arrow)
+    drawPath(tri, C.arrow, alpha = alpha)
 }
 
 /**

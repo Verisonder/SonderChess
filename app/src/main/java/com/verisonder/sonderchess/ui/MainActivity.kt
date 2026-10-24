@@ -9,6 +9,13 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,20 +47,40 @@ class MainActivity : ComponentActivity() {
                                 else -> Screen.Home
                             }
                     }
-                    val o = AppModel.opened
-                    when (s) {
-                        Screen.Home -> HomeScreen()
-                        is Screen.Loading -> LoadingScreen(s.message)
-                        is Screen.Analysing -> AnalysingScreen(s)
-                        is Screen.PickSide -> PickSideScreen(s.fetched)
-                        is Screen.Failed -> FailedScreen(s.message)
-                        is Screen.Summary -> if (o != null && o.saved.id == s.id) SummaryScreen(o) else HomeScreen()
-                        is Screen.Board -> if (o != null && o.saved.id == s.id) ReviewScreen(o, s.ply) else HomeScreen()
+                    AnimatedContent(
+                        targetState = s,
+                        contentKey = { it::class },
+                        transitionSpec = {
+                            val deeper = depthOf(targetState) >= depthOf(initialState)
+                            val dir = if (deeper) 1 else -1
+                            (slideInHorizontally(tween(260)) { w -> dir * w / 5 } + fadeIn(tween(220)))
+                                .togetherWith(slideOutHorizontally(tween(220)) { w -> -dir * w / 8 } + fadeOut(tween(160)))
+                        },
+                        label = "screen",
+                    ) { st ->
+                        val o = AppModel.opened
+                        when (st) {
+                            Screen.Home -> HomeScreen()
+                            is Screen.Loading -> LoadingScreen(st.message)
+                            is Screen.Analysing -> AnalysingScreen(AppModel.screen as? Screen.Analysing ?: st)
+                            is Screen.PickSide -> PickSideScreen(st.fetched)
+                            is Screen.Failed -> FailedScreen(st.message)
+                            is Screen.Summary -> if (o != null && o.saved.id == st.id) SummaryScreen(o) else HomeScreen()
+                            is Screen.Board -> if (o != null && o.saved.id == st.id) ReviewScreen(o, st.ply) else HomeScreen()
+                        }
                     }
                 }
             }
         }
     }
+
+    private fun depthOf(s: Screen) =
+        when (s) {
+            Screen.Home -> 0
+            is Screen.Summary -> 2
+            is Screen.Board -> 3
+            else -> 1
+        }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

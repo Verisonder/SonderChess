@@ -1,18 +1,26 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,7 +28,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +40,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.drawText
@@ -59,9 +71,27 @@ fun LabelIcon(
  * The coach. A placeholder figure (a knight in a disc) until the real coach art is in.
  */
 @Composable
-fun Coach(size: Dp = 64.dp) {
+fun Coach(
+    size: Dp = 64.dp,
+    reactTo: Any? = null,
+) {
+    // A small hop each time the coach has something new to say.
+    val hop = remember { Animatable(0f) }
+    LaunchedEffect(reactTo) {
+        if (reactTo == null) return@LaunchedEffect
+        hop.snapTo(0f)
+        hop.animateTo(1f, tween(140, easing = FastOutSlowInEasing))
+        hop.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 400f))
+    }
     Box(
-        Modifier.size(size).clip(CircleShape).background(C.panel2),
+        Modifier
+            .size(size)
+            .graphicsLayer {
+                translationY = -hop.value * size.toPx() * 0.08f
+                scaleX = 1f + hop.value * 0.04f
+                scaleY = 1f + hop.value * 0.04f
+            }.clip(CircleShape)
+            .background(C.panel2),
         contentAlignment = Alignment.Center,
     ) {
         Image(painterResource(R.drawable.piece_wn), null, Modifier.size(size * 0.78f))
@@ -88,6 +118,7 @@ fun Bubble(
         Box(
             Modifier
                 .fillMaxWidth()
+                .animateContentSize(spring(stiffness = 600f))
                 .shadow(2.dp, RoundedCornerShape(12.dp))
                 .clip(RoundedCornerShape(12.dp))
                 .background(C.bubble)
@@ -164,6 +195,8 @@ fun EvalGraph(
     modifier: Modifier = Modifier,
     onPick: ((Int) -> Unit)? = null,
 ) {
+    val reveal = remember { Animatable(0f) }
+    LaunchedEffect(evals.size) { reveal.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
     Canvas(
         modifier
             .fillMaxWidth()
@@ -202,7 +235,7 @@ fun EvalGraph(
                 lineTo(size.width, size.height)
                 close()
             }
-        drawPath(path, C.evalWhite)
+        clipRect(right = size.width * reveal.value) { drawPath(path, C.evalWhite) }
         drawLine(Color(0x55888888), Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1.dp.toPx())
         if (current != null) {
             val x = size.width * current / n
@@ -211,6 +244,7 @@ fun EvalGraph(
         for ((ply, l) in marks) {
             val i = ply + 1
             val x = size.width * i / n
+            if (x > size.width * reveal.value) continue
             drawCircle(l.colour(), 3.5.dp.toPx(), Offset(x, y(evals[i])))
             drawCircle(Color.White, 3.5.dp.toPx(), Offset(x, y(evals[i])), style = Stroke(1.dp.toPx()))
         }
@@ -225,20 +259,25 @@ fun GreenButton(
     height: Dp = 56.dp,
     onClick: () -> Unit,
 ) {
+    // Pressing pushes the face down onto its lip, like a real key.
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val sink by animateDpAsState(if (pressed) 3.dp else 0.dp, tween(70), label = "press")
     Box(
         modifier
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(10.dp))
             .background(C.greenDark)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = source, indication = null, onClick = onClick),
     ) {
         Box(
             Modifier
+                .offset(y = sink)
                 .fillMaxWidth()
                 .height(height - 4.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(C.green),
+                .background(if (pressed) Color(0xFF8CC157) else C.green),
             contentAlignment = Alignment.Center,
         ) {
             Text(text, style = display(20))

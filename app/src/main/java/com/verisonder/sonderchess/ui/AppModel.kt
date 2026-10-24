@@ -37,6 +37,7 @@ sealed interface Screen {
         val black: String,
         val done: Int,
         val total: Int,
+        val fen: String = com.verisonder.sonderchess.core.Position.START_FEN,
     ) : Screen
 
     data class PickSide(
@@ -176,7 +177,7 @@ object AppModel {
                     ensureActive()
                     val over = p.legalMoves().isEmpty()
                     evals.add(if (over) PositionEval(emptyList()) else engine.analyse(p.fen(), depth))
-                    screen = Screen.Analysing(f.white.name, f.black.name, i + 1, positions.size)
+                    screen = Screen.Analysing(f.white.name, f.black.name, i + 1, positions.size, p.fen())
                 }
             }
         } finally {
