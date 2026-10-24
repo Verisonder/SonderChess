@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,6 +47,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -430,13 +433,20 @@ private fun startReview(v: GameView) {
     }
 }
 
-/** "You Won! by Resignation vs X", rating change, a little knight, and the Game Review button. */
+/**
+ * The result card: "You Won! by Resignation", who it was against and the rating change over
+ * a strip of board squares, a knight hopping on a little board, the coach with your best
+ * move counts, and the Game Review button.
+ */
 @Composable
 private fun ResultCard(
     v: GameView,
     visible: Boolean,
     onClose: () -> Unit,
 ) {
+    val review by produceState<com.verisonder.sonderchess.core.Review?>(null, v.saved) {
+        value = v.saved?.let { AppModel.reviewOf(it) }
+    }
     AnimatedVisibility(visible = visible, enter = fadeIn(tween(200)), exit = fadeOut(tween(150))) {
         Box(
             Modifier.fillMaxSize().background(Color(0x99000000)).clickable(
@@ -459,20 +469,24 @@ private fun ResultCard(
             ) {
                 Column(
                     Modifier
-                        .padding(20.dp)
+                        .padding(horizontal = 16.dp, vertical = 24.dp)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(18.dp))
                         .background(C.panel)
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { },
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(Modifier.fillMaxWidth().height(170.dp)) {
+                    Box(Modifier.fillMaxWidth().height(190.dp)) {
                         BannerStrip()
                         Text(
                             "✕",
-                            style = body(22, FontWeight.Bold),
-                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).clickable(onClick = onClose),
+                            style = body(24, FontWeight.Bold),
+                            modifier = Modifier.align(Alignment.TopEnd).padding(14.dp).clickable(onClick = onClose),
                         )
-                        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            Modifier.align(Alignment.Center).padding(top = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
                             Text(
                                 when (v.result) {
                                     1 -> "You Won!"
@@ -480,54 +494,76 @@ private fun ResultCard(
                                     0 -> "Draw"
                                     else -> "Game Over"
                                 },
-                                style = display(30),
+                                style = display(32),
                             )
-                            v.ending?.let { Text(it, style = body(15, FontWeight.Bold, C.dim)) }
+                            v.ending?.let { Text(it, style = body(16, FontWeight.Bold, C.dim)) }
+                            Spacer(Modifier.height(10.dp))
                             val opp = if (v.meWhite) v.black else v.white
-                            Text("vs ${opp.name}", style = body(17, FontWeight.Bold))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("vs ", style = body(18, FontWeight.Bold, C.dim))
+                                Text(opp.name, style = display(20))
+                            }
                             v.myRating?.let { r ->
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    KindIcon(v.timeClass, 24.dp)
-                                    Spacer(Modifier.width(6.dp))
-                                    CountUp(r, display(22), key = "result" to v.id, delayMs = 350)
+                                    KindIcon(v.timeClass, 28.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    CountUp(r, display(26), key = "result" to v.id, delayMs = 350)
                                     v.ratingChange?.let { d ->
                                         Text(
                                             (if (d >= 0) " +" else " ") + d,
-                                            style = body(14, FontWeight.Bold, if (d >= 0) C.green else C.error),
+                                            style = body(16, FontWeight.Bold, if (d >= 0) C.green else C.error),
                                         )
                                     }
                                 }
                             }
                         }
                     }
-                    Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) { HoppingKnight() }
-                    v.saved?.let { s ->
-                        val review = AppModel.opened?.takeIf { it.saved.id == s.id }?.review
-                        val acc = if (s.meWhite) s.accuracyWhite else s.accuracyBlack
+                    Spacer(Modifier.height(8.dp))
+                    HoppingKnight()
+                    Spacer(Modifier.height(18.dp))
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Coach(64.dp, reactTo = review != null)
+                        Spacer(Modifier.width(4.dp))
+                        Bubble(Modifier.weight(1f)) {
+                            Text(
+                                review?.let {
+                                    com.verisonder.sonderchess.core.Explain
+                                        .summary(it, v.meWhite)
+                                }
+                                    ?: "Let's see how this one went, move by move.",
+                                style = body(15, FontWeight.Medium, C.bubbleText),
+                            )
+                        }
+                    }
+                    review?.let { r ->
+                        Spacer(Modifier.height(12.dp))
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("%.1f".format(acc), style = display(22))
-                                Text("Accuracy", style = body(13, color = C.faint))
-                            }
-                            if (review != null) {
-                                for (l in listOf(Label.Great, Label.Best, Label.Excellent)) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            LabelIcon(l, 22.dp)
-                                            Spacer(Modifier.width(4.dp))
-                                            Text(review.count(s.meWhite, l).toString(), style = display(22, l.colour()))
-                                        }
-                                        Text(l.title, style = body(13, color = l.colour()))
+                            for ((i, l) in highlights(r, v.meWhite).withIndex()) {
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .appear(i, listOf("chip", v.id, l))
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(C.panel2)
+                                        .padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        LabelIcon(l, 26.dp)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(r.count(v.meWhite, l).toString(), style = display(26, l.colour()))
                                     }
+                                    Text(l.title, style = body(14, FontWeight.Bold, l.colour()))
                                 }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
                     }
                     Box(Modifier.padding(16.dp)) {
                         GreenButton("Game Review") { startReview(v) }
@@ -538,16 +574,26 @@ private fun ResultCard(
     }
 }
 
-/** The card's banner: a strip of board squares fading down. */
+/** Your three proudest counts: the best kinds of move you actually played, Best and Excellent to fill in. */
+private fun highlights(
+    r: com.verisonder.sonderchess.core.Review,
+    meWhite: Boolean,
+): List<Label> {
+    val order = listOf(Label.Brilliant, Label.Great, Label.Best, Label.Excellent, Label.Good)
+    val played = order.filter { r.count(meWhite, it) > 0 }
+    return (played + listOf(Label.Best, Label.Excellent, Label.Good)).distinct().take(3).sortedBy { order.indexOf(it) }
+}
+
+/** The card's banner: board squares in your board colours, fading into the card. */
 @Composable
 private fun BannerStrip() {
     Canvas(Modifier.fillMaxSize()) {
-        val s = size.height / 2f
-        val cols = (size.width / s).toInt() + 1
-        for (r in 0..1) {
-            for (c in 0 until cols) {
+        val s = size.width / 5f
+        val rows = (size.height / s).toInt() + 1
+        for (r in 0 until rows) {
+            for (c in 0..4) {
                 drawRect(
-                    if ((r + c) % 2 == 0) AppModel.board.light.copy(alpha = 0.55f) else AppModel.board.dark.copy(alpha = 0.55f),
+                    if ((r + c) % 2 == 0) AppModel.board.light.copy(alpha = 0.6f) else AppModel.board.dark.copy(alpha = 0.6f),
                     Offset(c * s, r * s),
                     androidx.compose.ui.geometry
                         .Size(s, s),
@@ -556,56 +602,94 @@ private fun BannerStrip() {
         }
         drawRect(
             androidx.compose.ui.graphics.Brush
-                .verticalGradient(listOf(C.panel.copy(alpha = 0.35f), C.panel)),
+                .verticalGradient(listOf(C.panel.copy(alpha = 0.25f), C.panel.copy(alpha = 0.6f), C.panel)),
         )
     }
 }
 
-/** A knight hopping around a 3x3 board, in knight moves. */
+/**
+ * A knight touring a 3x3 board. Each jump follows the L: two squares one way, then one square
+ * the other, a little hop on each leg, facing where it is going. The square it lands on lights up.
+ */
 @Composable
 private fun HoppingKnight() {
-    val cells = listOf(0 to 0, 1 to 2, 2 to 0, 0 to 1, 2 to 2, 1 to 0, 0 to 2, 2 to 1)
+    val cells = listOf(0 to 1, 2 to 2, 1 to 0, 0 to 2, 2 to 1, 0 to 0, 1 to 2, 2 to 0)
     var i by remember { mutableIntStateOf(0) }
-    val hop = remember { Animatable(1f) }
+    val t = remember { Animatable(1f) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(700)
-            hop.snapTo(0f)
+            delay(900)
+            t.snapTo(0f)
             i = (i + 1) % cells.size
-            hop.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
+            t.animateTo(1f, tween(620, easing = androidx.compose.animation.core.LinearEasing))
         }
     }
     val knight = painterResource(AppModel.pieces.white[Piece.KNIGHT - 1])
-    Canvas(Modifier.size(132.dp).clip(RoundedCornerShape(14.dp))) {
-        val s = size.width / 3f
-        for (r in 0..2) {
-            for (c in 0..2) {
-                drawRect(
-                    if ((r + c) % 2 == 0) Color(0xFF5E5B57) else Color(0xFF4A4744),
-                    Offset(c * s, r * s),
+    Canvas(Modifier.size(196.dp, 204.dp)) {
+        val w = size.width
+        val s = w / 3f
+        val corner =
+            androidx.compose.ui.geometry
+                .CornerRadius(w * 0.1f)
+        // A darker edge under the board so it stands like a tile.
+        drawRoundRect(Color(0xFF3B3A38), cornerRadius = corner)
+        val top =
+            androidx.compose.ui.graphics.Path().apply {
+                addRoundRect(
                     androidx.compose.ui.geometry
-                        .Size(s, s),
+                        .RoundRect(0f, 0f, w, w, corner),
                 )
             }
-        }
-        val (fc, fr) = cells[(i - 1 + cells.size) % cells.size]
-        val (tc, tr) = cells[i]
-        drawRect(
-            C.green.copy(alpha = 0.6f * (1f - hop.value)),
-            Offset(fc * s, fr * s),
-            androidx.compose.ui.geometry
-                .Size(s, s),
-        )
-        val t = hop.value
-        val x = (fc + (tc - fc) * t) * s
-        val lift = kotlin.math.sin(Math.PI * t).toFloat() * s * 0.35f
-        val y = (fr + (tr - fr) * t) * s - lift
-        translate(x + s * 0.1f, y + s * 0.1f) {
-            with(knight) {
-                draw(
-                    androidx.compose.ui.geometry
-                        .Size(s * 0.8f, s * 0.8f),
-                )
+        clipPath(top) {
+            for (r in 0..2) {
+                for (c in 0..2) {
+                    drawRect(
+                        if ((r + c) % 2 == 0) Color(0xFF5F5E5B) else Color(0xFF4E4D4A),
+                        Offset(c * s, r * s),
+                        androidx.compose.ui.geometry
+                            .Size(s, s),
+                    )
+                }
+            }
+            val (fc, fr) = cells[(i - 1 + cells.size) % cells.size]
+            val (tc, tr) = cells[i]
+            val p = t.value
+            // Light leaves the old square as the knight takes off and fills the new one as it lands.
+            drawRect(
+                C.green.copy(alpha = (1f - p * 3f).coerceIn(0f, 1f)),
+                Offset(fc * s, fr * s),
+                androidx.compose.ui.geometry
+                    .Size(s, s),
+            )
+            drawRect(
+                C.green.copy(alpha = ((p - 0.8f) * 5f).coerceIn(0f, 1f)),
+                Offset(tc * s, tr * s),
+                androidx.compose.ui.geometry
+                    .Size(s, s),
+            )
+            // The L: the long leg first, then the short one.
+            val longX = kotlin.math.abs(tc - fc) == 2
+            val (mc, mr) = if (longX) tc to fr else fc to tr
+            val split = 0.62f
+            val (x, y, leg) =
+                if (p < split) {
+                    val q = FastOutSlowInEasing.transform(p / split)
+                    Triple(fc + (mc - fc) * q, fr + (mr - fr) * q, q)
+                } else {
+                    val q = FastOutSlowInEasing.transform((p - split) / (1f - split))
+                    Triple(mc + (tc - mc) * q, mr + (tr - mr) * q, q)
+                }
+            val lift = kotlin.math.sin(Math.PI * leg).toFloat() * s * (if (p < split) 0.28f else 0.18f)
+            val faceRight = tc > fc
+            translate(x * s + s * 0.1f, y * s + s * 0.1f - lift) {
+                scale(if (faceRight) -1f else 1f, 1f, Offset(s * 0.4f, s * 0.4f)) {
+                    with(knight) {
+                        draw(
+                            androidx.compose.ui.geometry
+                                .Size(s * 0.8f, s * 0.8f),
+                        )
+                    }
+                }
             }
         }
     }
