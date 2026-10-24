@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -861,7 +862,7 @@ private fun ResultIcon(result: Int?) {
     }
 }
 
-/** Game type icons, drawn: bot, rapid clock, blitz bolt, bullet, daily sun, puzzles, file. */
+/** Game type icons, drawn: bot, rapid clock, blitz bolt, bullet, daily sun, puzzles, file, and a board for games. */
 @Composable
 fun KindIcon(
     kind: String,
@@ -1032,6 +1033,50 @@ fun KindIcon(
                 )
                 drawCircle(c, 3f * u, o(11f, 6f))
                 drawCircle(c, 3f * u, o(19f, 14f))
+            }
+            "games" -> {
+                // A little board standing on a darker edge, in your board's colours.
+                val light = AppModel.board.light
+                val dark = AppModel.board.dark
+                val corner =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(3f * u)
+                drawRoundRect(
+                    androidx.compose.ui.graphics
+                        .lerp(dark, Color.Black, 0.45f),
+                    o(2.5f, 4f),
+                    androidx.compose.ui.geometry
+                        .Size(19f * u, 18.5f * u),
+                    corner,
+                )
+                clipPath(
+                    androidx.compose.ui.graphics.Path().apply {
+                        addRoundRect(
+                            androidx.compose.ui.geometry
+                                .RoundRect(2.5f * u, 2.5f * u, 21.5f * u, 21.5f * u, corner),
+                        )
+                    },
+                ) {
+                    val sq = 19f * u / 4f
+                    for (r in 0..3) {
+                        for (c in 0..3) {
+                            drawRect(
+                                if ((r + c) % 2 == 0) light else dark,
+                                Offset(2.5f * u + c * sq, 2.5f * u + r * sq),
+                                androidx.compose.ui.geometry
+                                    .Size(sq, sq),
+                            )
+                        }
+                    }
+                    // A soft shine across the top.
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.22f), Color.Transparent),
+                            startY = 2.5f * u,
+                            endY = 12f * u,
+                        ),
+                    )
+                }
             }
             "pgn" -> {
                 drawRoundRect(
