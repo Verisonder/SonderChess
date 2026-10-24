@@ -45,6 +45,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -302,52 +303,35 @@ private fun BarButton(
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Canvas(Modifier.size(22.dp)) {
-            val w = 2.dp.toPx()
+        // All three icons share one stroke width, round ends and outline style.
+        Canvas(Modifier.size(24.dp)) {
+            val st = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            val u = size.width / 24f
+
+            fun o(
+                x: Float,
+                y: Float,
+            ) = Offset(x * u, y * u)
+            val p = Path()
             when (text) {
                 "Show" -> {
-                    // An arrow: what the engine suggests.
-                    drawLine(
-                        col,
-                        Offset(size.width * 0.15f, size.height * 0.85f),
-                        Offset(size.width * 0.8f, size.height * 0.2f),
-                        w * 1.3f,
-                        StrokeCap.Round,
-                    )
-                    drawLine(
-                        col,
-                        Offset(size.width * 0.8f, size.height * 0.2f),
-                        Offset(size.width * 0.4f, size.height * 0.2f),
-                        w * 1.3f,
-                        StrokeCap.Round,
-                    )
-                    drawLine(
-                        col,
-                        Offset(size.width * 0.8f, size.height * 0.2f),
-                        Offset(size.width * 0.8f, size.height * 0.6f),
-                        w * 1.3f,
-                        StrokeCap.Round,
-                    )
+                    p.moveTo(5f * u, 19f * u)
+                    p.lineTo(18f * u, 6f * u)
+                    p.moveTo(9.5f * u, 6f * u)
+                    p.lineTo(18f * u, 6f * u)
+                    p.lineTo(18f * u, 14.5f * u)
+                    drawPath(p, col, style = st)
                 }
                 "Best" -> {
-                    drawCircle(col, size.width * 0.32f, Offset(size.width * 0.44f, size.height * 0.44f), style = Stroke(w))
-                    drawLine(
-                        col,
-                        Offset(size.width * 0.67f, size.height * 0.67f),
-                        Offset(size.width * 0.92f, size.height * 0.92f),
-                        w * 1.3f,
-                        StrokeCap.Round,
-                    )
+                    drawCircle(col, 6.5f * u, o(10.5f, 10.5f), style = st)
+                    drawLine(col, o(15.3f, 15.3f), o(20f, 20f), st.width, StrokeCap.Round)
                 }
                 else -> {
-                    val a = Offset(size.width * 0.25f, size.height * 0.5f)
-                    val b = Offset(size.width * 0.75f, size.height * 0.2f)
-                    val c = Offset(size.width * 0.75f, size.height * 0.8f)
-                    drawLine(col, a, b, w)
-                    drawLine(col, a, c, w)
-                    drawCircle(col, size.width * 0.12f, a)
-                    drawCircle(col, size.width * 0.12f, b)
-                    drawCircle(col, size.width * 0.12f, c)
+                    drawLine(col, o(8.4f, 10.8f), o(15.6f, 7.2f), st.width, StrokeCap.Round)
+                    drawLine(col, o(8.4f, 13.2f), o(15.6f, 16.8f), st.width, StrokeCap.Round)
+                    drawCircle(col, 2.6f * u, o(6f, 12f), style = st)
+                    drawCircle(col, 2.6f * u, o(18f, 6f), style = st)
+                    drawCircle(col, 2.6f * u, o(18f, 18f), style = st)
                 }
             }
         }

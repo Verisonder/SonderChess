@@ -131,7 +131,16 @@ class Store(
             }
 
         fun p(x: JSONObject) =
-            Player(x.getString("name"), if (x.has("rating")) x.getInt("rating") else null, x.optBoolean("computer"), null)
+            Player(
+                x.getString(
+                    "name",
+                ),
+                if (x.has("rating")) x.getInt("rating") else null,
+                x.optBoolean("computer"),
+                x.optString("avatar").takeIf {
+                    it.startsWith("https://")
+                },
+            )
         return SavedGame(
             id = o.getString("id"),
             game = Pgn.parse(o.getString("pgn")),

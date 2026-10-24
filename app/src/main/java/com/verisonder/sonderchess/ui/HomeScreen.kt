@@ -281,7 +281,7 @@ fun PickSideScreen(f: FetchedGame) {
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Avatar(p.name, white, 44.dp)
+                Avatar(p.name, white, 44.dp, p.avatar)
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(p.name, style = body(16, FontWeight.Bold))

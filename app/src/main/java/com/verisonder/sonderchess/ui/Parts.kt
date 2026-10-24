@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -285,13 +286,15 @@ fun GreenButton(
     }
 }
 
-/** A player's round initial (no pictures are fetched). */
+/** A player's profile picture; their initial until it loads (or when there is none). */
 @Composable
 fun Avatar(
     name: String,
     white: Boolean,
     size: Dp = 56.dp,
+    url: String? = null,
 ) {
+    val image = rememberAvatar(url)
     Box(
         Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(if (white) C.light else C.evalBlack),
         contentAlignment = Alignment.Center,
@@ -300,6 +303,14 @@ fun Avatar(
             name.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?",
             style = display((size.value * 0.42f).toInt(), if (white) C.bg else C.text),
         )
+        androidx.compose.animation.AnimatedVisibility(
+            visible = image != null,
+            enter = androidx.compose.animation.fadeIn(tween(250)),
+        ) {
+            image?.let {
+                Image(it, contentDescription = name, modifier = Modifier.size(size), contentScale = ContentScale.Crop)
+            }
+        }
     }
 }
 

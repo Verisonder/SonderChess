@@ -58,9 +58,9 @@ fun SummaryScreen(o: Opened) {
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RowTitle("Players")
-                PlayerCell(o.saved.white.name, true)
+                PlayerCell(o.saved.white.name, true, o.saved.white.avatar)
                 Spacer(Modifier.width(28.dp))
-                PlayerCell(o.saved.black.name, false)
+                PlayerCell(o.saved.black.name, false, o.saved.black.avatar)
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,11 +120,12 @@ private fun RowTitle(t: String) {
 private fun androidx.compose.foundation.layout.RowScope.PlayerCell(
     name: String,
     white: Boolean,
+    url: String?,
 ) {
     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(name, style = body(13, FontWeight.Bold, C.dim), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(6.dp))
-        Avatar(name, white, 52.dp)
+        Avatar(name, white, 52.dp, url)
     }
 }
 
