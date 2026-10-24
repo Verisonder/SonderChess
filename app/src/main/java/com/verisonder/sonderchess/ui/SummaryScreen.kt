@@ -37,6 +37,7 @@ import kotlin.math.roundToInt
 fun SummaryScreen(o: Opened) {
     val r = o.review
     val me = o.saved.meWhite
+    val fresh = remember(o.saved.id) { Played.first("summary" to o.saved.id) }
     Column(Modifier.fillMaxSize()) {
         TopBar("Game Review", onBack = { AppModel.screen = Screen.Home })
         Column(
@@ -52,7 +53,7 @@ fun SummaryScreen(o: Opened) {
                 r.moves
                     .filter { it.label in setOf(Label.Brilliant, Label.Great, Label.Miss, Label.Mistake, Label.Blunder) }
                     .map { it.ply to it.label }
-            EvalGraph(r.evals, marks, null, onPick = { AppModel.screen = Screen.Board(o.saved.id, it - 1) })
+            EvalGraph(r.evals, marks, null, animate = fresh, onPick = { AppModel.screen = Screen.Board(o.saved.id, it - 1) })
             Spacer(Modifier.height(16.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -64,19 +65,22 @@ fun SummaryScreen(o: Opened) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RowTitle("Accuracy")
-                CountedScore(r.accuracyWhite, true, Modifier.weight(1f), decimals = true)
+                CountedScore(r.accuracyWhite, true, Modifier.weight(1f), decimals = true, animate = fresh)
                 Spacer(Modifier.width(28.dp))
-                CountedScore(r.accuracyBlack, false, Modifier.weight(1f), decimals = true)
+                CountedScore(r.accuracyBlack, false, Modifier.weight(1f), decimals = true, animate = fresh)
             }
             Spacer(Modifier.height(14.dp))
             Box(Modifier.fillMaxWidth().height(1.dp).background(C.line))
             Spacer(Modifier.height(6.dp))
             for ((i, l) in Label.entries.withIndex()) {
-                Row(Modifier.fillMaxWidth().height(36.dp).appear(i), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth().height(36.dp).appear(i, listOf("summary", o.saved.id, i)),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     RowTitle(l.title)
-                    Count(r.count(true, l), l, Modifier.weight(1f))
+                    Count(r.count(true, l), l, Modifier.weight(1f), fresh)
                     Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) { LabelIcon(l, 22.dp) }
-                    Count(r.count(false, l), l, Modifier.weight(1f))
+                    Count(r.count(false, l), l, Modifier.weight(1f), fresh)
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -84,9 +88,9 @@ fun SummaryScreen(o: Opened) {
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RowTitle("Game Rating")
-                CountedScore(r.rating(true).toDouble(), true, Modifier.weight(1f), decimals = false)
+                CountedScore(r.rating(true).toDouble(), true, Modifier.weight(1f), decimals = false, animate = fresh)
                 Spacer(Modifier.width(28.dp))
-                CountedScore(r.rating(false).toDouble(), false, Modifier.weight(1f), decimals = false)
+                CountedScore(r.rating(false).toDouble(), false, Modifier.weight(1f), decimals = false, animate = fresh)
             }
             r.opening?.let {
                 Spacer(Modifier.height(14.dp))
@@ -134,9 +138,10 @@ private fun CountedScore(
     white: Boolean,
     modifier: Modifier,
     decimals: Boolean,
+    animate: Boolean,
 ) {
-    // Counts up from zero the first time the summary shows.
-    val shown = remember { Animatable(0f) }
+    // Counts up from zero the first time this game's summary shows.
+    val shown = remember { Animatable(if (animate) 0f else value.toFloat()) }
     LaunchedEffect(value) { shown.animateTo(value.toFloat(), tween(900, delayMillis = 150, easing = FastOutSlowInEasing)) }
     val text = if (decimals) "%.1f".format(shown.value) else (shown.value.toInt() / 50 * 50).toString()
     Box(
@@ -150,8 +155,9 @@ private fun Count(
     n: Int,
     l: Label,
     modifier: Modifier,
+    animate: Boolean,
 ) {
-    val shown = remember { Animatable(0f) }
+    val shown = remember { Animatable(if (animate) 0f else n.toFloat()) }
     LaunchedEffect(
         n,
     ) { shown.animateTo(n.toFloat(), tween(500 + n * 25, delayMillis = 250 + l.ordinal * 45, easing = FastOutSlowInEasing)) }

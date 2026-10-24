@@ -524,15 +524,29 @@ object AppModel {
                 review.accuracyWhite,
                 review.accuracyBlack,
             )
+        synchronized(reviews) { reviews[id + "@" + saved.savedAt] = review }
         withContext(Dispatchers.IO) { store.save(saved) }
         refresh()
         opened = Opened(saved, review)
         screen = Screen.Summary(id)
     }
 
+    /** Reviews already worked out this session, by game and save time. */
+    private val reviews = HashMap<String, Review>()
+
+    /** The review of a saved game, worked out once and then reused. */
+    suspend fun reviewOf(saved: SavedGame): Review {
+        val k = saved.id + "@" + saved.savedAt
+        synchronized(reviews) { reviews[k] }?.let { return it }
+        val b = book()
+        val r = withContext(Dispatchers.Default) { Classifier.review(saved.game, saved.evals, b) }
+        synchronized(reviews) { reviews[k] = r }
+        return r
+    }
+
     fun open(saved: SavedGame) {
         scope.launch {
-            val review = Classifier.review(saved.game, saved.evals, book())
+            val review = reviewOf(saved)
             opened = Opened(saved, review)
             screen = Screen.Summary(saved.id)
         }

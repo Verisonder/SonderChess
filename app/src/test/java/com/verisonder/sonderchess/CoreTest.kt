@@ -68,6 +68,8 @@ class CoreTest {
                             }.toList(),
                     )
                 }.toList()
+        // A saved game is stored as its own PGN; reading it back must give the same moves.
+        assertEquals(game.moves, Pgn.parse(game.toPgn()).moves)
         val book = OpeningBook.parse(File("src/main/assets/openings.tsv").readText())
         val r = Classifier.review(game, evals, book)
         // Chess.com: 78.3 / 72.6, two brilliant moves for White (26.Rad1, 27.Rxe6), two book moves each.

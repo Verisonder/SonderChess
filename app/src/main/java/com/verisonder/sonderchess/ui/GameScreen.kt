@@ -490,7 +490,7 @@ private fun ResultCard(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     KindIcon(v.timeClass, 24.dp)
                                     Spacer(Modifier.width(6.dp))
-                                    CountUp(r, display(22), delayMs = 350)
+                                    CountUp(r, display(22), key = "result" to v.id, delayMs = 350)
                                     v.ratingChange?.let { d ->
                                         Text(
                                             (if (d >= 0) " +" else " ") + d,

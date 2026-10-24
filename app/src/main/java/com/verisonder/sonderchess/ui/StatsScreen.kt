@@ -64,19 +64,20 @@ fun StatsScreen() {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val days = periods[period].second
     val since = if (days == 0) 0L else System.currentTimeMillis() - days * 86_400_000L
-    val games by produceState<List<ArchiveGame>?>(null, user, period) {
-        value = null
-        value = if (user == null) emptyList() else runCatching { ChessComApi.gamesSince(user, since) }.getOrDefault(emptyList())
+    val games by produceState(StatsCache.games[user to period], user, period) {
+        val cached = StatsCache.games[user to period]
+        value = cached
+        if (cached == null) {
+            val got = if (user == null) emptyList() else runCatching { ChessComApi.gamesSince(user, since) }.getOrDefault(emptyList())
+            StatsCache.games[user to period] = got
+            value = got
+        }
     }
-    // Brilliant moves from your reviews in the period (worked out off the main thread).
+    // Brilliant moves from your reviews in the period; each review is worked out once per session.
     val brilliant by produceState<Int?>(null, AppModel.history, period) {
         value =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                AppModel.history.filter { since == 0L || it.savedAt >= since }.sumOf { s ->
-                    com.verisonder.sonderchess.core.Classifier
-                        .review(s.game, s.evals)
-                        .count(s.meWhite, Label.Brilliant)
-                }
+            AppModel.history.filter { since == 0L || it.savedAt >= since }.sumOf { s ->
+                AppModel.reviewOf(s).count(s.meWhite, Label.Brilliant)
             }
     }
     Column(Modifier.fillMaxSize()) {
@@ -111,7 +112,7 @@ fun StatsScreen() {
                     if (games == null) {
                         CircularProgressIndicator(color = C.green, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
                     } else {
-                        CountUp(games!!.size, display(28))
+                        CountUp(games!!.size, display(28), key = "stats-games" to period)
                         Spacer(Modifier.width(8.dp))
                         Text("Games", style = body(17, color = C.dim))
                     }
@@ -128,7 +129,7 @@ fun StatsScreen() {
                 val series = mine.mapNotNull { g -> if (g.black.equals(user, true)) g.blackRating else g.whiteRating }
                 val change = if (series.size >= 2) series.last() - series.first() else null
                 item(key = kind) {
-                    Box(Modifier.appear(listOf("daily", "rapid", "bullet", "blitz").indexOf(kind))) {
+                    Box(Modifier.appear(listOf("daily", "rapid", "bullet", "blitz").indexOf(kind), "stats" to kind)) {
                         StatRow(kind, name, rating?.toString() ?: "–", change, open == kind) { open = if (open == kind) null else kind }
                     }
                     AnimatedVisibility(open == kind, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -225,6 +226,11 @@ private fun StatRowIcon(
     }
 }
 
+/** Archive games already fetched this session, by player and period. */
+private object StatsCache {
+    val games = HashMap<Pair<String?, Int>, List<ArchiveGame>?>()
+}
+
 /** Rating over the period: a green line with a soft fill, drawn in from the left. */
 @Composable
 private fun RatingChart(series: List<Int>) {
@@ -232,8 +238,9 @@ private fun RatingChart(series: List<Int>) {
         Text("Not enough games in this period for a graph.", style = body(13, color = C.faint))
         return
     }
-    val reveal = remember(series) { Animatable(0f) }
-    LaunchedEffect(series) { reveal.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
+    val fresh = remember(series) { Played.first(listOf("chart", series)) }
+    val reveal = remember(series) { Animatable(if (fresh) 0f else 1f) }
+    LaunchedEffect(series) { if (fresh) reveal.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
     val lo = series.min()
     val hi = series.max()
     Column {

@@ -199,7 +199,7 @@ fun HomeScreen() {
                     }
                 }
                 itemsIndexed(rows.take(5), key = { _, it -> it.id }) { i, h ->
-                    Box(Modifier.appear(i + 4)) {
+                    Box(Modifier.appear(i + 4, "home" to h.id)) {
                         GameRow(h, onLong = {
                             h.saved?.let {
                                 deleting =
@@ -295,7 +295,7 @@ fun AllGamesScreen() {
         }
         LazyColumn(Modifier.fillMaxSize()) {
             itemsIndexed(rows, key = { _, it -> it.id }) { i, h ->
-                Box(Modifier.appear(i)) {
+                Box(Modifier.appear(i, "all" to h.id)) {
                     GameRow(h, onLong = {
                         h.saved?.let {
                             deleting =
@@ -381,17 +381,20 @@ private fun ProfileHeader() {
         Box(Modifier.fillMaxWidth().height(200.dp)) {
             PieceBanner(Modifier.fillMaxWidth().height(170.dp))
             Row(Modifier.align(Alignment.BottomStart).padding(start = 16.dp), verticalAlignment = Alignment.Bottom) {
+                val fresh = remember { Played.first("profile-pop") }
                 val pop =
                     remember {
                         androidx.compose.animation.core
-                            .Animatable(0.6f)
+                            .Animatable(if (fresh) 0.6f else 1f)
                     }
                 LaunchedEffect(Unit) {
-                    pop.animateTo(
-                        1f,
-                        androidx.compose.animation.core
-                            .spring(dampingRatio = 0.5f, stiffness = 300f),
-                    )
+                    if (fresh) {
+                        pop.animateTo(
+                            1f,
+                            androidx.compose.animation.core
+                                .spring(dampingRatio = 0.5f, stiffness = 300f),
+                        )
+                    }
                 }
                 if (name != null) {
                     Box(
@@ -457,7 +460,7 @@ private fun CountFact(
     modifier: Modifier,
 ) {
     Column(modifier) {
-        CountUp(value, body(19, FontWeight.Bold))
+        CountUp(value, body(19, FontWeight.Bold), key = "fact" to label)
         Text(label, style = body(15, color = C.faint))
     }
 }
@@ -538,7 +541,7 @@ private fun StatsRow(p: Profile) {
             val (kind, label, value) = cards[i]
             Column(
                 Modifier
-                    .appear(i + 1)
+                    .appear(i + 1, "card" to kind)
                     .size(118.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF2A2825))
@@ -553,7 +556,7 @@ private fun StatsRow(p: Profile) {
             ) {
                 KindIcon(kind, 44.dp)
                 Spacer(Modifier.height(8.dp))
-                CountUp(value, display(20), delayMs = 200 + i * 60)
+                CountUp(value, display(20), key = "card" to kind, delayMs = 200 + i * 60)
                 Text(label, style = body(14, FontWeight.Medium, C.faint))
             }
         }

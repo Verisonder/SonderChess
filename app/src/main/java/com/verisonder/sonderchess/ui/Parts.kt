@@ -257,9 +257,10 @@ fun EvalGraph(
     marks: List<Pair<Int, Label>>,
     current: Int?,
     modifier: Modifier = Modifier,
+    animate: Boolean = true,
     onPick: ((Int) -> Unit)? = null,
 ) {
-    val reveal = remember { Animatable(0f) }
+    val reveal = remember { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(evals.size) { reveal.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
     Canvas(
         modifier
@@ -421,10 +422,14 @@ fun figurine(
 
 /** Fades and slides in, each [index] a beat after the one before (capped so long lists don't wait). */
 @Composable
-fun Modifier.appear(index: Int): Modifier {
-    val t = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        t.animateTo(1f, tween(320, delayMillis = 80 + index.coerceAtMost(10) * 45, easing = FastOutSlowInEasing))
+fun Modifier.appear(
+    index: Int,
+    key: Any,
+): Modifier {
+    val fresh = remember(key) { Played.first(key) }
+    val t = remember(key) { Animatable(if (fresh) 0f else 1f) }
+    LaunchedEffect(key) {
+        if (fresh) t.animateTo(1f, tween(320, delayMillis = 80 + index.coerceAtMost(10) * 45, easing = FastOutSlowInEasing))
     }
     return this.graphicsLayer {
         alpha = t.value
@@ -432,15 +437,27 @@ fun Modifier.appear(index: Int): Modifier {
     }
 }
 
+/**
+ * Entrances that already played this session. Scrolling back, or coming back to a page,
+ * shows those parts settled instead of animating and counting them again.
+ */
+object Played {
+    private val seen = HashSet<Any>()
+
+    fun first(key: Any): Boolean = synchronized(seen) { seen.add(key) }
+}
+
 /** A number that counts up to [value] the first time it shows, and glides when it changes. */
 @Composable
 fun CountUp(
     value: Int,
     style: androidx.compose.ui.text.TextStyle,
+    key: Any,
     modifier: Modifier = Modifier,
     delayMs: Int = 150,
 ) {
-    val shown = remember { Animatable(0f) }
+    val fresh = remember(key) { Played.first(listOf("count", key, value)) }
+    val shown = remember(key) { Animatable(if (fresh) 0f else value.toFloat()) }
     LaunchedEffect(value) { shown.animateTo(value.toFloat(), tween(800, delayMillis = delayMs, easing = FastOutSlowInEasing)) }
     Text(shown.value.toInt().toString(), style = style, modifier = modifier)
 }

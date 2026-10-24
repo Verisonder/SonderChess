@@ -144,6 +144,7 @@ class Store(
             put("name", p.name)
             p.rating?.let { put("rating", it) }
             put("computer", p.computer)
+            p.avatar?.let { put("avatar", it) }
         }
 
     private fun decode(text: String): SavedGame {
