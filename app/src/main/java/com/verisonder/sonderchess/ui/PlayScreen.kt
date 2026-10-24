@@ -85,7 +85,17 @@ fun InteractiveBoard(
     var promo by remember(fen) { mutableStateOf<List<Move>?>(null) }
     val legal = remember(fen) { position.legalMoves() }
     Box(modifier) {
-        ChessBoard(position, last = last, label = label, arrows = arrows, flipped = flipped, modifier = Modifier.fillMaxSize())
+        // Tints go under the pieces: the selected piece's square, and any hint or answer marks.
+        val tints = selected?.let { marks + (it to Color(0x80F7EC74)) } ?: marks
+        ChessBoard(
+            position,
+            last = last,
+            label = label,
+            arrows = arrows,
+            flipped = flipped,
+            modifier = Modifier.fillMaxSize(),
+            marks = tints,
+        )
         Canvas(
             Modifier.fillMaxSize().pointerInput(fen, flipped, enabled) {
                 detectTapGestures { off ->
@@ -114,9 +124,8 @@ fun InteractiveBoard(
                     (if (flipped) 7 - fileOf(square) else fileOf(square)) * s,
                     (if (flipped) rankOf(square) else 7 - rankOf(square)) * s,
                 )
-            for ((square, c) in marks) drawRect(c, at(square), Size(s, s))
+            // Only the move dots and capture rings are drawn over the pieces.
             selected?.let { from ->
-                drawRect(Color(0x66F7EC74), at(from), Size(s, s))
                 for (m in legal.filter { it.from == from }.distinctBy { it.to }) {
                     val c = at(m.to) + Offset(s / 2f, s / 2f)
                     if (position[m.to] != 0) {

@@ -116,6 +116,8 @@ fun ChessBoard(
     animate: Boolean = true,
     theme: BoardTheme = AppModel.board,
     set: PieceSet = AppModel.pieces,
+    /** Squares tinted under the pieces (a selected piece, a hint, a right or wrong answer). */
+    marks: Map<Int, Color> = emptyMap(),
 ) {
     val pieces = piecePainters(set)
     val tm = rememberTextMeasurer()
@@ -173,6 +175,7 @@ fun ChessBoard(
             drawRect(tint, origin(last.from), Size(s, s))
             drawRect(tint, origin(last.to), Size(s, s))
         }
+        for ((sq, c) in marks) drawRect(c, origin(sq), Size(s, s))
         if (AppModel.coordinates) drawCoordinates(tm, s, flipped, shownTheme)
         val a = anim
         val t = glide.value
