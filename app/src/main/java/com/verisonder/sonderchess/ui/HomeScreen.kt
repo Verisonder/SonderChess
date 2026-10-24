@@ -1278,7 +1278,7 @@ fun ConfirmMeScreen(
     ) {
         Coach(80.dp, reactTo = p.name)
         Spacer(Modifier.height(18.dp))
-        Text("Your Chess.com account", style = display(22))
+        Text("This Chess.com account", style = display(22))
         Spacer(Modifier.height(18.dp))
         Row(
             Modifier
@@ -1299,7 +1299,7 @@ fun ConfirmMeScreen(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "Choose it to see your profile, ratings and games on Home.",
+            "Choose it to see its profile, ratings and games on Home.",
             style = body(13, color = C.faint),
             textAlign = TextAlign.Center,
         )
