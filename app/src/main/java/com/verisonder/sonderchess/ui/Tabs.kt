@@ -321,7 +321,7 @@ fun MoreScreen() {
         AlertDialog(
             onDismissRequest = { confirmDisconnect = false },
             containerColor = C.panel,
-            title = { Text("Change account?", style = display(18)) },
+            title = { Text("Another player?", style = display(18)) },
             text = {
                 Text(
                     "The games reviewed for ${AppModel.username} and the saved analysis will be removed from this device.",
@@ -360,7 +360,7 @@ fun MoreScreen() {
             MoreRow(2, "Stats", "Ratings, records and puzzles") { AppModel.screen = Screen.Stats() }
             MoreRow(3, "Game History", "Every game, reviewed or not") { AppModel.screen = Screen.AllGames }
             if (AppModel.username != null) {
-                MoreRow(4, "Change account", AppModel.username.orEmpty()) { confirmDisconnect = true }
+                MoreRow(4, "Another player?", AppModel.username.orEmpty()) { confirmDisconnect = true }
             } else {
                 MoreRow(5, "Choose your Chess.com account", "Show your profile, ratings and games on Home") {
                     AppModel.hideConnect(false)
@@ -372,9 +372,14 @@ fun MoreScreen() {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Verisonder/SonderChess")))
             }
             Text(
-                "SonderChess ${BuildConfig.VERSION_NAME} · GPL-3.0 · Stockfish 17.1\nNot affiliated with Chess.com.",
+                "SonderChess ${BuildConfig.VERSION_NAME} · GPL-3.0 · Stockfish 17.1",
                 style = body(12, color = C.faint),
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            Text(
+                "Not affiliated with Chess.com.",
+                style = body(12, FontWeight.Bold, C.error),
+                modifier = Modifier.padding(bottom = 16.dp),
             )
         }
     }
