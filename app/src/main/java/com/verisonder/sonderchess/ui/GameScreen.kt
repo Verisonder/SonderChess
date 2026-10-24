@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -599,7 +600,7 @@ private fun HoppingKnight() {
         val x = (fc + (tc - fc) * t) * s
         val lift = kotlin.math.sin(Math.PI * t).toFloat() * s * 0.35f
         val y = (fr + (tr - fr) * t) * s - lift
-        androidx.compose.ui.graphics.drawscope.translate(x + s * 0.1f, y + s * 0.1f) {
+        translate(x + s * 0.1f, y + s * 0.1f) {
             with(knight) {
                 draw(
                     androidx.compose.ui.geometry
