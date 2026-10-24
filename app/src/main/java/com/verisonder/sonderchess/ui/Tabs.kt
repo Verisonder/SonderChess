@@ -333,12 +333,12 @@ fun MoreScreen() {
                     confirmDisconnect = false
                     AppModel.disconnect()
                     AppModel.screen = Screen.Home
-                }) { Text("Change", style = body(15, FontWeight.Bold, C.error)) }
+                }) { Text("Change", style = body(15, FontWeight.Bold, C.dim)) }
             },
             dismissButton = {
                 TextButton(
                     onClick = { confirmDisconnect = false },
-                ) { Text("Cancel", style = body(15, FontWeight.Bold, C.dim)) }
+                ) { Text("Cancel", style = body(15, FontWeight.Bold, C.green)) }
             },
         )
     }
