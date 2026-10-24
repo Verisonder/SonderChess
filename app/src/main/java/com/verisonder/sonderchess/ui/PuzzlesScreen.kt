@@ -81,10 +81,15 @@ private fun OfflinePuzzles() {
     val scope = rememberCoroutineScope()
     var puzzle by remember { mutableStateOf<OfflinePuzzle?>(null) }
     var change by remember { mutableStateOf<Int?>(null) }
+    var missing by remember { mutableStateOf(false) }
 
     fun next() {
         change = null
-        scope.launch { puzzle = AppModel.nextPuzzle() }
+        scope.launch {
+            val p = AppModel.nextPuzzle()
+            puzzle = p
+            missing = p == null
+        }
     }
     LaunchedEffect(Unit) { if (puzzle == null) next() }
     val p = puzzle
@@ -105,7 +110,11 @@ private fun OfflinePuzzles() {
             if (AppModel.puzzleStreak > 0) Text("Streak ${AppModel.puzzleStreak}", style = body(14, FontWeight.Bold, C.dim))
         }
         if (p == null) {
-            Text("Getting a puzzle…", style = body(15, color = C.faint), modifier = Modifier.padding(16.dp))
+            Text(
+                if (missing) "Couldn't open the puzzles." else "Getting a puzzle…",
+                style = body(15, color = C.faint),
+                modifier = Modifier.padding(16.dp),
+            )
         } else {
             val spec =
                 remember(p.id) {

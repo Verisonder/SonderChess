@@ -30,11 +30,13 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(C.bar.toArgb()),
         )
         super.onCreate(savedInstanceState)
+        CrashLog.install(this)
         AppModel.init(this)
         if (savedInstanceState == null) handle(intent)
         setContent {
             ChessTheme {
                 Box(Modifier.fillMaxSize().background(C.bg).safeDrawingPadding()) {
+                    CrashLog.Report(this@MainActivity)
                     val s = AppModel.screen
                     BackHandler(enabled = s != Screen.Home) {
                         AppModel.screen =

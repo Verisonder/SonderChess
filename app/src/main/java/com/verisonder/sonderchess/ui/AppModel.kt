@@ -156,16 +156,19 @@ object AppModel {
     /** A puzzle near your rating that you haven't played. */
     suspend fun nextPuzzle(): com.verisonder.sonderchess.core.OfflinePuzzle? =
         withContext(Dispatchers.IO) {
-            val book =
-                puzzleBook ?: com.verisonder.sonderchess.core.PuzzleBook
-                    .parse(
-                        java.util.zip
-                            .GZIPInputStream(app.assets.open("puzzles.tsv.gz"))
-                            .bufferedReader()
-                            .use { it.readText() },
-                    ).also { puzzleBook = it }
-            val seen = puzzlesSeen ?: store.puzzlesSeen().toMutableSet().also { puzzlesSeen = it }
-            book.pick(puzzleRating, seen)
+            runCatching {
+                // puzzles.dat is the gzipped list; the plain name keeps the build tools from touching it.
+                val book =
+                    puzzleBook ?: com.verisonder.sonderchess.core.PuzzleBook
+                        .parse(
+                            java.util.zip
+                                .GZIPInputStream(app.assets.open("puzzles.dat"))
+                                .bufferedReader()
+                                .use { it.readText() },
+                        ).also { puzzleBook = it }
+                val seen = puzzlesSeen ?: store.puzzlesSeen().toMutableSet().also { puzzlesSeen = it }
+                book.pick(puzzleRating, seen)
+            }.getOrNull()
         }
 
     /** Scores a puzzle once: [clean] is solved with no wrong move, hint or shown solution. */

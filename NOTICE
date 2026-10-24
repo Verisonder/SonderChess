@@ -12,6 +12,6 @@ It includes:
   Chessnut (Alexis Luengas, Apache 2.0), Mono (Maxime Chupin, GPL-3.0+), Spatial (Maurizio Monge, MIT),
   Warm (RhosGFX, CC0 1.0).
 - Opening data from lichess-org/chess-openings, CC0 1.0 (licenses/CC0-chess-openings.txt).
-- Puzzles (app/src/main/assets/puzzles.tsv.gz) from the Lichess puzzle database, database.lichess.org, CC0 1.0 (licenses/CC0-chess-openings.txt has the CC0 text).
+- Puzzles (app/src/main/assets/puzzles.dat, gzipped) from the Lichess puzzle database, database.lichess.org, CC0 1.0 (licenses/CC0-chess-openings.txt has the CC0 text).
 - Montserrat and Roboto fonts, SIL Open Font License 1.1 (licenses/).
 - Material icon glyphs (star, thumb up, check, book, close), Apache 2.0, by Google.
