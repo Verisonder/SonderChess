@@ -656,8 +656,14 @@ internal fun ToolButton(
                     drawPath(p, col, style = st)
                 }
                 "retry" -> {
-                    drawArc(col, -60f, 300f, false, o(4.5f, 4.5f), Size(15f * u, 15f * u), style = st)
-                    line(19.5f to 3.5f, 19.5f to 8.6f, 14.4f to 8.6f)
+                    // A circle going back round, with the arrowhead at the top pointing left.
+                    drawArc(col, -90f, 290f, false, o(5f, 6f), Size(14f * u, 14f * u), style = st)
+                    val p = Path()
+                    p.moveTo(8f * u, 6f * u)
+                    p.lineTo(12.8f * u, 2.2f * u)
+                    p.lineTo(12.8f * u, 9.8f * u)
+                    p.close()
+                    drawPath(p, col)
                 }
                 else -> line(9f to 5f, 16f to 12f, 9f to 19f)
             }

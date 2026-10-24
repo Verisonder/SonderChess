@@ -345,7 +345,7 @@ private fun PuzzleBoard(
                 last = last,
                 arrows = emptyList(),
                 modifier = Modifier.size(maxWidth).graphicsLayer { translationX = shake.value * density },
-                enabled = !busy && (state == Attempt.Solving || state == Attempt.Right) && pos.white == youWhite,
+                enabled = !busy && state != Attempt.Solved && state != Attempt.Shown && pos.white == youWhite,
                 marks =
                     hint
                         ?.let {
