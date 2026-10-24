@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -322,6 +323,10 @@ fun GreenButton(
     text: String,
     modifier: Modifier = Modifier,
     height: Dp = 56.dp,
+    face: Color = C.green,
+    lip: Color = C.greenDark,
+    pressedFace: Color = Color(0xFF8CC157),
+    icon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     // Pressing pushes the face down onto its lip, like a real key.
@@ -333,7 +338,7 @@ fun GreenButton(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(10.dp))
-            .background(C.greenDark)
+            .background(lip)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
     ) {
         Box(
@@ -342,13 +347,29 @@ fun GreenButton(
                 .fillMaxWidth()
                 .height(height - 4.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (pressed) Color(0xFF8CC157) else C.green),
+                .background(if (pressed) pressedFace else face),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text, style = display(20))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                icon?.let {
+                    it()
+                    Spacer(Modifier.width(10.dp))
+                }
+                Text(text, style = display(20))
+            }
         }
     }
 }
+
+/** The same key-like button in grey, for the second choice next to a green one. */
+@Composable
+fun GreyButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    height: Dp = 56.dp,
+    icon: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) = GreenButton(text, modifier, height, Color(0xFF45423E), Color(0xFF2E2C29), Color(0xFF4F4C48), icon, onClick)
 
 /** A player's profile picture; their initial until it loads (or when there is none). */
 @Composable

@@ -277,9 +277,10 @@ fun PasteScreen() {
             )
     Column(Modifier.fillMaxSize()) {
         TopBar("Review a Game", onBack = null)
-        Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+        // The coach and the box sit in the middle of the page; the buttons wait at the bottom.
+        Column(Modifier.weight(1f).padding(horizontal = 16.dp), verticalArrangement = Arrangement.Center) {
             Row(Modifier.appear(0, "paste-head"), verticalAlignment = Alignment.CenterVertically) {
-                Coach(56.dp)
+                Coach(64.dp)
                 Spacer(Modifier.width(4.dp))
                 Bubble(Modifier.weight(1f)) {
                     Text(
@@ -293,7 +294,7 @@ fun PasteScreen() {
                 value = text,
                 onValueChange = { text = it },
                 placeholder = { Text("chess.com/game/…") },
-                minLines = 3,
+                minLines = 4,
                 maxLines = 8,
                 modifier = Modifier.fillMaxWidth().appear(1, "paste-field"),
                 colors =
@@ -302,6 +303,11 @@ fun PasteScreen() {
                         unfocusedBorderColor = C.line,
                         cursorColor = C.green,
                     ),
+                trailingIcon = {
+                    if (text.isNotEmpty()) {
+                        Text("✕", style = body(16, FontWeight.Bold, C.dim), modifier = Modifier.clickable { text = "" }.padding(8.dp))
+                    }
+                },
             )
             androidx.compose.animation.AnimatedVisibility(text.isNotBlank() && !usable) {
                 Text(
@@ -310,31 +316,16 @@ fun PasteScreen() {
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.appear(2, "paste-buttons"), verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(C.panel2)
-                        .clickable { text = clipboard.getText()?.text.orEmpty() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    PasteIcon()
-                    Spacer(Modifier.width(8.dp))
-                    Text("Paste", style = body(16, FontWeight.Bold))
-                }
-                if (text.isNotEmpty()) {
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = { text = "" }) { Text("Clear", style = body(15, FontWeight.Bold, C.dim)) }
-                }
-            }
         }
-        // Review lights up once there is something it can open.
-        val alpha by androidx.compose.animation.core
-            .animateFloatAsState(if (usable) 1f else 0.4f, tween(180), label = "review")
-        Box(Modifier.padding(16.dp).graphicsLayer { this.alpha = alpha }) {
-            GreenButton("Review", height = 56.dp) { if (usable) AppModel.handleText(text) }
+        Column(Modifier.padding(16.dp).appear(2, "paste-buttons")) {
+            GreyButton("Paste", height = 56.dp, icon = { PasteIcon(C.text) }) { text = clipboard.getText()?.text.orEmpty() }
+            Spacer(Modifier.height(10.dp))
+            // Review lights up once there is something it can open.
+            val alpha by androidx.compose.animation.core
+                .animateFloatAsState(if (usable) 1f else 0.4f, tween(180), label = "review")
+            Box(Modifier.graphicsLayer { this.alpha = alpha }) {
+                GreenButton("Review", height = 56.dp) { if (usable) AppModel.handleText(text) }
+            }
         }
     }
 }
