@@ -9,10 +9,10 @@ import com.verisonder.sonderchess.core.Piece
 import com.verisonder.sonderchess.core.Position
 
 /** What happened on the board, which picks the sound. */
-enum class SoundEvent { Move, Capture, Castle, Check, Promote, End }
+enum class SoundEvent { Move, Capture, Castle, Check, Promote, End, Brilliant }
 
 /**
- * Board sounds. All of them are synthesised by tools/make_sounds.py; five sets, six events each.
+ * Board sounds. All of them are synthesised by tools/make_sounds.py; five sets, seven events each.
  */
 object Sounds {
     val sets =
@@ -35,6 +35,7 @@ object Sounds {
                     R.raw.snd_default_check,
                     R.raw.snd_default_promote,
                     R.raw.snd_default_end,
+                    R.raw.snd_default_brilliant,
                 ),
             "nature" to
                 listOf(
@@ -44,6 +45,7 @@ object Sounds {
                     R.raw.snd_nature_check,
                     R.raw.snd_nature_promote,
                     R.raw.snd_nature_end,
+                    R.raw.snd_nature_brilliant,
                 ),
             "metal" to
                 listOf(
@@ -53,6 +55,7 @@ object Sounds {
                     R.raw.snd_metal_check,
                     R.raw.snd_metal_promote,
                     R.raw.snd_metal_end,
+                    R.raw.snd_metal_brilliant,
                 ),
             "marble" to
                 listOf(
@@ -62,6 +65,7 @@ object Sounds {
                     R.raw.snd_marble_check,
                     R.raw.snd_marble_promote,
                     R.raw.snd_marble_end,
+                    R.raw.snd_marble_brilliant,
                 ),
             "space" to
                 listOf(
@@ -71,6 +75,7 @@ object Sounds {
                     R.raw.snd_space_check,
                     R.raw.snd_space_promote,
                     R.raw.snd_space_end,
+                    R.raw.snd_space_brilliant,
                 ),
         )
 

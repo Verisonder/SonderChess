@@ -131,7 +131,9 @@ fun ReviewScreen(
         }
         if (ply < 0) return@LaunchedEffect
         val m = if (showingBest) bestMove else r.game.moves[ply]
-        if (m != null) Sounds.play(Sounds.eventFor(positions[ply], m))
+        // A brilliant move gets its own sparkle instead of the plain move sound.
+        val brilliant = !showingBest && r.moves[ply].label == Label.Brilliant
+        if (m != null) Sounds.play(if (brilliant) SoundEvent.Brilliant else Sounds.eventFor(positions[ply], m))
     }
 
     Box(Modifier.fillMaxSize()) {

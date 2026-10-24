@@ -56,7 +56,15 @@ def events(tap, name):
     check = mix(tap(1.0), pad(tone(chime_base * 2, 0.35, 0.09, 0.35), 0.03))
     promote = mix(tap(1.0), pad(sweep(chime_base, chime_base * 2, 0.3, 0.12, 0.35), 0.04))
     end = mix(*(pad(tone(chime_base * r, 0.9, 0.35, 0.3), i * 0.09) for i, r in enumerate([1, 1.25, 1.5])))
-    return {"move": move, "capture": capture, "castle": castle, "check": check, "promote": promote, "end": end}
+    # Brilliant: the move itself, then a quick rising sparkle with a soft shimmer on top.
+    # (Its own noise source, so adding it leaves every other sound exactly as it was.)
+    sparkle = mix(*(pad(mix(tone(chime_base * r, 0.5, 0.16, 0.32), tone(chime_base * r * 2, 0.3, 0.06, 0.08)), 0.05 + i * 0.065)
+                    for i, r in enumerate([1, 1.25, 1.5, 2])))
+    noise = np.random.default_rng(len(name)).standard_normal(int(SR * 0.6))
+    shimmer = pad(band(noise, 6000, 12000) * env(0.6, 0.2, attack=0.08) * 0.05, 0.25)
+    brilliant = mix(move, sparkle, shimmer, pad(tone(chime_base * 3, 0.9, 0.3, 0.12), 0.31))
+    return {"move": move, "capture": capture, "castle": castle, "check": check, "promote": promote, "end": end,
+            "brilliant": brilliant}
 
 def write(sig, path):
     sig = sig / max(1e-9, np.max(np.abs(sig))) * 0.85
