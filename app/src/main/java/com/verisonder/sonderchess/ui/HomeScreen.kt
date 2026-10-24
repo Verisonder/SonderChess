@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -687,17 +688,19 @@ fun KindIcon(
                 drawLine(C.bg, o(9.5f, 16f), o(14.5f, 16f), 1.6f * u, StrokeCap.Round)
             }
             "blitz" -> {
+                // A leaning lightning bolt, yellow on top, orange below.
                 val p =
                     Path().apply {
-                        moveTo(13.5f * u, 2f * u)
-                        lineTo(5f * u, 13.5f * u)
-                        lineTo(11f * u, 13.5f * u)
-                        lineTo(9.5f * u, 22f * u)
-                        lineTo(19f * u, 9.5f * u)
-                        lineTo(13f * u, 9.5f * u)
+                        moveTo(17f * u, 1f * u)
+                        lineTo(3.5f * u, 14f * u)
+                        lineTo(10.8f * u, 14f * u)
+                        lineTo(7f * u, 23f * u)
+                        lineTo(21f * u, 8.6f * u)
+                        lineTo(13.6f * u, 8.6f * u)
                         close()
                     }
-                drawPath(p, Color(0xFFF7C631))
+                drawPath(p, Color(0xFFFFC21F))
+                clipRect(top = 13.2f * u) { drawPath(p, Color(0xFFF59E1B)) }
             }
             "bullet" -> {
                 // A fat gold bullet flying up and to the right, with speed streaks.

@@ -7,7 +7,7 @@ License, or (at your option) any later version.
 
 It includes:
 - Stockfish (https://stockfishchess.org), GPL-3.0, downloaded at build time.
-- cburnett chess pieces by Colin M.L. Burnett, GPL-2.0-or-later.
+- Chess pieces based on the RhosGFX set (CC0 1.0), recoloured.
 - Opening data from lichess-org/chess-openings, CC0 1.0 (licenses/CC0-chess-openings.txt).
 - Montserrat and Roboto fonts, SIL Open Font License 1.1 (licenses/).
 - Material icon glyphs (star, thumb up, check, book, close), Apache 2.0, by Google.

@@ -34,7 +34,7 @@ gradle assembleDebug
 ## Credits
 
 - [Stockfish](https://stockfishchess.org) (GPL-3.0), the chess engine.
-- Chess pieces by [Colin M.L. Burnett](https://en.wikipedia.org/wiki/User:Cburnett) (GPL-2.0-or-later).
+- Chess pieces based on the [RhosGFX](https://github.com/lichess-org/lila/tree/master/public/piece/rhosgfx) set (CC0), recoloured.
 - Opening names from [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0).
 - Fonts: Montserrat and Roboto (SIL Open Font License).
 - Badge symbols from Google's Material icons (Apache 2.0).
