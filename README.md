@@ -12,7 +12,7 @@
 
 <p align="center">
   <b>Free game review for your Chess.com games, on your phone.</b><br>
-  Stockfish runs on the device. No account, no subscription, no server.
+  Stockfish runs on the device. No sign-up, no subscription, no server.
 </p>
 
 ---

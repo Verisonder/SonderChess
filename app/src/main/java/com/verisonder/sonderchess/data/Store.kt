@@ -77,7 +77,7 @@ class Store(
         get() = prefs.getInt("depth", 16)
         set(v) = prefs.edit().putInt("depth", v).apply()
 
-    /** You said "Not now" to choosing a Chess.com account. */
+    /** You said "Not now" to choosing a Chess.com player. */
     var connectHidden: Boolean
         get() = prefs.getBoolean("connectHidden", false)
         set(v) = prefs.edit().putBoolean("connectHidden", v).apply()

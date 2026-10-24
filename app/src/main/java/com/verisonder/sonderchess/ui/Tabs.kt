@@ -362,7 +362,7 @@ fun MoreScreen() {
             if (AppModel.username != null) {
                 MoreRow(4, "Another player?", AppModel.username.orEmpty()) { confirmDisconnect = true }
             } else {
-                MoreRow(5, "Choose your Chess.com account", "Show your profile, ratings and games on Home") {
+                MoreRow(5, "Choose a player", "Show a Chess.com player's profile, ratings and games on Home") {
                     AppModel.hideConnect(false)
                     AppModel.screen = Screen.Home
                 }

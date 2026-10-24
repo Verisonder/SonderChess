@@ -200,7 +200,7 @@ fun HomeScreen() {
                             if (AppModel.username == null && AppModel.connectHidden) {
                                 "Share a game from Chess.com, or paste one in Review, and it shows up here."
                             } else if (AppModel.username == null) {
-                                "Share a game from Chess.com, or choose your account above."
+                                "Share a game from Chess.com, or choose a player above."
                             } else {
                                 "No games yet. Finish a game on Chess.com and it shows up here."
                             },
@@ -697,7 +697,7 @@ private fun ConnectCard() {
             .background(C.panel)
             .padding(16.dp),
     ) {
-        Text("Choose your Chess.com account", style = display(16))
+        Text("Choose a Chess.com player", style = display(16))
         Spacer(Modifier.height(4.dp))
         Text(
             "Your games and ratings show up here, ready to review. Type your username, or share your Chess.com profile to SonderChess.",
@@ -1278,7 +1278,7 @@ fun ConfirmMeScreen(
     ) {
         Coach(80.dp, reactTo = p.name)
         Spacer(Modifier.height(18.dp))
-        Text("This Chess.com account", style = display(22))
+        Text("This Chess.com player", style = display(22))
         Spacer(Modifier.height(18.dp))
         Row(
             Modifier

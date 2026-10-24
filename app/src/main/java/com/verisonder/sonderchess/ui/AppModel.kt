@@ -129,7 +129,7 @@ object AppModel {
     var botLevel = 2
     var botColour = 0
 
-    /** Whether the "Choose your Chess.com account" card on Home is hidden ("Not now"). */
+    /** Whether the "Choose a Chess.com player" card on Home is hidden ("Not now"). */
     var connectHidden by mutableStateOf(false)
         private set
 
