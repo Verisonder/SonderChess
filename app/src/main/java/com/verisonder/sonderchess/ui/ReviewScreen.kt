@@ -104,7 +104,9 @@ fun ReviewScreen(
             !showingBest &&
             bestMove != null &&
             mr.uci != mr.bestUci &&
-            mr.label != Label.Book
+            mr.label != Label.Book &&
+            mr.label != Label.Brilliant &&
+            mr.label != Label.Best
         ) {
             listOf(bestMove)
         } else {
