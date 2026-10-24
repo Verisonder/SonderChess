@@ -160,7 +160,7 @@ object AppModel {
     var currentPuzzle by mutableStateOf<com.verisonder.sonderchess.core.OfflinePuzzle?>(null)
         private set
 
-    private suspend fun book(): com.verisonder.sonderchess.core.PuzzleBook =
+    private suspend fun puzzlePack(): com.verisonder.sonderchess.core.PuzzleBook =
         puzzleBook ?: withContext(Dispatchers.IO) {
             // puzzles.dat is the gzipped list; the plain name keeps the build tools from touching it.
             com.verisonder.sonderchess.core.PuzzleBook.parse(
@@ -177,7 +177,7 @@ object AppModel {
         val saved =
             runCatching {
                 val id = store.currentPuzzle
-                book().puzzles.firstOrNull { it.id == id }
+                puzzlePack().puzzles.firstOrNull { it.id == id }
             }.getOrNull()
         return saved?.also { currentPuzzle = it } ?: nextPuzzle()
     }
@@ -187,7 +187,7 @@ object AppModel {
         withContext(Dispatchers.IO) {
             runCatching {
                 val seen = puzzlesSeen ?: store.puzzlesSeen().toMutableSet().also { puzzlesSeen = it }
-                book().pick(puzzleRating, seen)?.also { p ->
+                puzzlePack().pick(puzzleRating, seen)?.also { p ->
                     seen.add(p.id)
                     store.markPuzzleSeen(p.id)
                     store.currentPuzzle = p.id
