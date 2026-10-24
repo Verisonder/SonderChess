@@ -31,6 +31,10 @@ data class Profile(
     val bullet: Int?,
     val daily: Int?,
     val puzzles: Int?,
+    /** When the best puzzle rating was reached, the lowest, and the best Puzzle Rush score. */
+    val puzzlesBestAt: Long? = null,
+    val puzzlesLowest: Int? = null,
+    val puzzleRush: Int? = null,
 )
 
 data class Record(
@@ -115,6 +119,25 @@ object ChessComApi {
                         ?.optJSONObject("tactics")
                         ?.optJSONObject("highest")
                         ?.optInt("rating")
+                        ?.takeIf { it > 0 },
+                puzzlesBestAt =
+                    s
+                        ?.optJSONObject("tactics")
+                        ?.optJSONObject("highest")
+                        ?.optLong("date")
+                        ?.takeIf { it > 0 }
+                        ?.times(1000L),
+                puzzlesLowest =
+                    s
+                        ?.optJSONObject("tactics")
+                        ?.optJSONObject("lowest")
+                        ?.optInt("rating")
+                        ?.takeIf { it > 0 },
+                puzzleRush =
+                    s
+                        ?.optJSONObject("puzzle_rush")
+                        ?.optJSONObject("best")
+                        ?.optInt("score")
                         ?.takeIf { it > 0 },
                 name = p.optString("name").takeIf { it.isNotBlank() },
                 location = p.optString("location").trim().takeIf { it.isNotBlank() && it.any(Char::isLetterOrDigit) },

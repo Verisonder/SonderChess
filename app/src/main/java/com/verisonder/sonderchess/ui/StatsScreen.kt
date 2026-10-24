@@ -74,12 +74,11 @@ fun StatsScreen() {
         }
     }
     // Brilliant moves from your reviews in the period; each review is worked out once per session.
-    val brilliant by produceState<Int?>(null, AppModel.history, period) {
-        value =
-            AppModel.history.filter { since == 0L || it.savedAt >= since }.sumOf { s ->
-                AppModel.reviewOf(s).count(s.meWhite, Label.Brilliant)
-            }
+    val reviewed = AppModel.history.filter { since == 0L || it.savedAt >= since }
+    val brilliantGames by produceState<List<Pair<com.verisonder.sonderchess.data.SavedGame, Int>>?>(null, AppModel.history, period) {
+        value = reviewed.map { it to AppModel.reviewOf(it).count(it.meWhite, Label.Brilliant) }
     }
+    val brilliant = brilliantGames?.sumOf { it.second }
     Column(Modifier.fillMaxSize()) {
         TopBar("Stats", onBack = { AppModel.screen = Screen.Home })
         LazyColumn(Modifier.fillMaxSize()) {
@@ -156,15 +155,58 @@ fun StatsScreen() {
                 }
             }
             item(key = "brilliant") {
-                StatRowIcon({ LabelIcon(Label.Brilliant, 26.dp) }, "Brilliant Moves", brilliant?.toString() ?: "…", null)
+                StatRowIcon(
+                    { LabelIcon(Label.Brilliant, 26.dp) },
+                    "Brilliant Moves",
+                    brilliant?.toString() ?: "…",
+                    null,
+                    open == "brilliant",
+                ) { open = if (open == "brilliant") null else "brilliant" }
+                AnimatedVisibility(open == "brilliant", enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        Text(
+                            "From the ${reviewed.size} game" + (if (reviewed.size == 1) "" else "s") +
+                                " you reviewed in SonderChess" + (if (days == 0) "" else " in this period") +
+                                ". Chess.com doesn't share its own count.",
+                            style = body(13, color = C.faint),
+                        )
+                        for ((g, n) in brilliantGames.orEmpty().filter { it.second > 0 }) {
+                            val opp = if (g.meWhite) g.black.name else g.white.name
+                            Row(
+                                Modifier.fillMaxWidth().clickable { AppModel.open(g) }.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("vs $opp", style = body(15, FontWeight.Medium), modifier = Modifier.weight(1f))
+                                Text("$n", style = body(15, FontWeight.Bold, C.text))
+                                Spacer(Modifier.width(6.dp))
+                                LabelIcon(Label.Brilliant, 18.dp)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
             }
-            item(key = "puzzles") { StatRow("puzzles", "Puzzles (best)", p?.puzzles?.toString() ?: "–", null, false) {} }
-            item {
-                Text(
-                    "Brilliant moves count the games you reviewed in SonderChess.",
-                    style = body(12, color = C.faint),
-                    modifier = Modifier.padding(16.dp),
-                )
+            item(key = "puzzles") {
+                StatRowIcon(
+                    { KindIcon("puzzles", 26.dp) },
+                    "Puzzles (best)",
+                    p?.puzzles?.toString() ?: "–",
+                    null,
+                    open == "puzzles",
+                ) { open = if (open == "puzzles") null else "puzzles" }
+                AnimatedVisibility(open == "puzzles", enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        val day = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
+                        PuzzleLine("Highest", p?.puzzles?.toString(), p?.puzzlesBestAt?.let { day.format(java.util.Date(it)) })
+                        PuzzleLine("Lowest", p?.puzzlesLowest?.toString(), null)
+                        PuzzleLine("Puzzle Rush best", p?.puzzleRush?.toString(), null)
+                        Text(
+                            "Chess.com only shares your highest and lowest puzzle ratings, not the current one.",
+                            style = body(12, color = C.faint),
+                            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -223,6 +265,19 @@ private fun StatRowIcon(
         } else {
             Spacer(Modifier.width(14.dp))
         }
+    }
+}
+
+@Composable
+private fun PuzzleLine(
+    name: String,
+    value: String?,
+    note: String?,
+) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(name, style = body(15, FontWeight.Medium, C.dim), modifier = Modifier.weight(1f))
+        note?.let { Text(it + "  ", style = body(13, color = C.faint)) }
+        Text(value ?: "–", style = body(15, FontWeight.Bold))
     }
 }
 
