@@ -1,6 +1,6 @@
 """Builds the SonderChess launcher icon: the Verisonder SR mark (blue S, white R) drawn like
 the app's pieces - a thick dark outline, a darker band low down for depth - standing together
-on one piece base, over a wooden board.
+on one piece base, on the app's dark background.
 
 Run: python3 tools/make_icon.py  -> app/src/main/res/drawable/ic_launcher_{background,foreground,monochrome}.xml
 The letters are the Verisonder avatar's pixel S and R, redrawn as clean blocks (tools/sr_mark.txt).
@@ -17,6 +17,7 @@ OUTLINE = "#262421"
 S_FILL, S_SHADE = "#4FB0E6", "#2C83B8"
 R_FILL, R_SHADE = "#FFFFFF", "#D4D3D0"
 BASE_FILL, BASE_TOP = "#D4D3D0", "#F4F4F2"
+BG = "#383430"  # a touch lighter than the app background, so the dark piece outline still shows
 STROKE = 15  # outline width in mark units (the mark is drawn on a 256 grid)
 
 
@@ -92,15 +93,7 @@ def monochrome():
 
 
 def background():
-    light, dark = "#C9996B", "#9A6A45"
-    g = path("M0 0h108v108h-108z", dark)
-    n = 4
-    s = 108 / n
-    for r in range(n):
-        for c in range(n):
-            if (r + c) % 2 == 0:
-                g += path(f"M{c * s:g} {r * s:g}h{s:g}v{s:g}h-{s:g}z", light)
-    return vector(g, "SonderChess icon background: a wooden board (tools/make_icon.py)")
+    return vector(path("M0 0h108v108h-108z", BG), "SonderChess icon background: plain dark grey (tools/make_icon.py)")
 
 
 def svg_preview():
@@ -108,8 +101,7 @@ def svg_preview():
     def p(d, fill, stroke=None):
         s = f' stroke="{stroke}" stroke-width="{STROKE}" stroke-linejoin="round"' if stroke else ""
         return f'<path d="{d}" fill="{fill}"{s}/>'
-    bg = '<rect width="108" height="108" fill="#9A6A45"/>' + "".join(
-        f'<rect x="{c * 27}" y="{r * 27}" width="27" height="27" fill="#C9996B"/>' for r in range(4) for c in range(4) if (r + c) % 2 == 0)
+    bg = f'<rect width="108" height="108" fill="{BG}"/>'
     g = "".join(p(d, OUTLINE, OUTLINE) for d in (S, R, BASE)) + p(BASE, BASE_FILL) + p(BASE_BAND, BASE_TOP)
     for i, (d, fill, shade, top) in enumerate(((S, S_FILL, S_SHADE, 112), (R, R_FILL, R_SHADE, 97))):
         g += p(d, fill) + f'<clipPath id="c{i}"><path d="{clip_below(0.72, top, BASELINE)}"/></clipPath><g clip-path="url(#c{i})">{p(d, shade)}</g>'
