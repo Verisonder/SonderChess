@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -582,7 +583,8 @@ private fun highlights(
 /** The card's banner: board squares in your board colours, fading into the card. */
 @Composable
 private fun BannerStrip() {
-    Canvas(Modifier.fillMaxSize()) {
+    // Clipped: the last row of squares would otherwise spill below the banner, unfaded.
+    Canvas(Modifier.fillMaxSize().clipToBounds()) {
         val s = size.width / 5f
         val rows = (size.height / s).toInt() + 1
         for (r in 0 until rows) {
