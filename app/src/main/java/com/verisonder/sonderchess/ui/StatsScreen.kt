@@ -87,7 +87,7 @@ fun StatsScreen(openFirst: String? = null) {
                     Avatar(user ?: "?", true, 60.dp, p?.avatar)
                     Spacer(Modifier.width(12.dp))
                     Column {
-                        Text(user ?: "Not connected", style = display(18))
+                        Text(user ?: "No account chosen", style = display(18))
                         p?.name?.let { Text(it, style = body(14, color = C.dim)) }
                         p?.joined?.let {
                             Text(

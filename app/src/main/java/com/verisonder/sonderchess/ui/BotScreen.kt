@@ -112,7 +112,7 @@ fun mirrorBot(): Bot {
         ) {
             "I play just like you. Rated $r, same as you. Let's see who blinks first."
         } else {
-            "Connect your Chess.com account and I'll match your rating. Until then, I'm 1200."
+            "Choose your Chess.com account and I'll match your rating. Until then, I'm 1200."
         },
         "mirror",
     )

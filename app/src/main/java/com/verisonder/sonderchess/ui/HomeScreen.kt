@@ -200,7 +200,7 @@ fun HomeScreen() {
                             if (AppModel.username == null && AppModel.connectHidden) {
                                 "Share a game from Chess.com, or paste one in Review, and it shows up here."
                             } else if (AppModel.username == null) {
-                                "Share a game from Chess.com, or connect your account above."
+                                "Share a game from Chess.com, or choose your account above."
                             } else {
                                 "No games yet. Finish a game on Chess.com and it shows up here."
                             },
@@ -697,7 +697,7 @@ private fun ConnectCard() {
             .background(C.panel)
             .padding(16.dp),
     ) {
-        Text("Connect your Chess.com", style = display(16))
+        Text("Choose your Chess.com account", style = display(16))
         Spacer(Modifier.height(4.dp))
         Text(
             "Your games and ratings show up here, ready to review. Type your username, or share your Chess.com profile to SonderChess.",
@@ -722,11 +722,11 @@ private fun ConnectCard() {
             )
             Spacer(Modifier.width(10.dp))
             Box(Modifier.width(110.dp)) {
-                GreenButton(if (AppModel.accountBusy) "…" else "Connect", height = 52.dp) { AppModel.connect(name) }
+                GreenButton(if (AppModel.accountBusy) "…" else "Choose", height = 52.dp) { AppModel.connect(name) }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("You can connect later in More.", style = body(12, color = C.faint), modifier = Modifier.weight(1f))
+            Text("You can choose it later in More.", style = body(12, color = C.faint), modifier = Modifier.weight(1f))
             TextButton(onClick = { AppModel.hideConnect(true) }) { Text("Not now", style = body(14, FontWeight.Bold, C.dim)) }
         }
     }
@@ -1263,7 +1263,7 @@ fun PickSideScreen(f: FetchedGame) {
 
 /**
  * Before connecting an account from a shared game: the player you seem to be, and a choice.
- * Yes connects it; "Yes, but don't connect" reviews it as yours without loading any profile;
+ * Yes picks that account; "Yes, but don't choose it" reviews it as yours without loading any profile;
  * No asks which player you are.
  */
 @Composable
@@ -1300,7 +1300,7 @@ fun ConfirmMeScreen(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "Yes connects this Chess.com account, so your profile, ratings and games show on Home.",
+            "Yes chooses this Chess.com account, so your profile, ratings and games show on Home.",
             style = body(13, color = C.faint),
             textAlign = TextAlign.Center,
         )
@@ -1308,7 +1308,7 @@ fun ConfirmMeScreen(
         GreenButton("Yes, that's me", height = 54.dp) { AppModel.pickSide(f, white) }
         Spacer(Modifier.height(6.dp))
         TextButton(onClick = { AppModel.reviewWithoutConnecting(f, white) }) {
-            Text("Yes, but don't connect", style = body(15, FontWeight.Bold, C.dim))
+            Text("Yes, but don't choose it", style = body(15, FontWeight.Bold, C.dim))
         }
         TextButton(onClick = { AppModel.screen = Screen.PickSide(f) }) {
             Text("No, that's not me", style = body(15, FontWeight.Bold, C.dim))
