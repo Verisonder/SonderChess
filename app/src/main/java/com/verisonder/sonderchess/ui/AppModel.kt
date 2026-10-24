@@ -153,29 +153,57 @@ object AppModel {
     var puzzleStreak by mutableIntStateOf(0)
         private set
 
-    /** A puzzle near your rating that you haven't played. */
+    /** Which puzzle tab was open (0 the offline puzzles, 1 the daily one), kept across tab switches. */
+    var puzzleTab by mutableIntStateOf(0)
+
+    /** The offline puzzle on the board. It stays until you press Next, even if you leave. */
+    var currentPuzzle by mutableStateOf<com.verisonder.sonderchess.core.OfflinePuzzle?>(null)
+        private set
+
+    private suspend fun book(): com.verisonder.sonderchess.core.PuzzleBook =
+        puzzleBook ?: withContext(Dispatchers.IO) {
+            // puzzles.dat is the gzipped list; the plain name keeps the build tools from touching it.
+            com.verisonder.sonderchess.core.PuzzleBook.parse(
+                java.util.zip
+                    .GZIPInputStream(app.assets.open("puzzles.dat"))
+                    .bufferedReader()
+                    .use { it.readText() },
+            )
+        }.also { puzzleBook = it }
+
+    /** The puzzle you were on (also after restarting the app), or a new one. */
+    suspend fun puzzleNow(): com.verisonder.sonderchess.core.OfflinePuzzle? {
+        currentPuzzle?.let { return it }
+        val saved =
+            runCatching {
+                val id = store.currentPuzzle
+                book().puzzles.firstOrNull { it.id == id }
+            }.getOrNull()
+        return saved?.also { currentPuzzle = it } ?: nextPuzzle()
+    }
+
+    /** A new puzzle near your rating that you haven't seen. */
     suspend fun nextPuzzle(): com.verisonder.sonderchess.core.OfflinePuzzle? =
         withContext(Dispatchers.IO) {
             runCatching {
-                // puzzles.dat is the gzipped list; the plain name keeps the build tools from touching it.
-                val book =
-                    puzzleBook ?: com.verisonder.sonderchess.core.PuzzleBook
-                        .parse(
-                            java.util.zip
-                                .GZIPInputStream(app.assets.open("puzzles.dat"))
-                                .bufferedReader()
-                                .use { it.readText() },
-                        ).also { puzzleBook = it }
                 val seen = puzzlesSeen ?: store.puzzlesSeen().toMutableSet().also { puzzlesSeen = it }
-                book.pick(puzzleRating, seen)
+                book().pick(puzzleRating, seen)?.also { p ->
+                    seen.add(p.id)
+                    store.markPuzzleSeen(p.id)
+                    store.currentPuzzle = p.id
+                    store.currentPuzzleScored = false
+                }
             }.getOrNull()
-        }
+        }.also { currentPuzzle = it }
 
     /** Scores a puzzle once: [clean] is solved with no wrong move, hint or shown solution. */
     fun recordPuzzle(
         p: com.verisonder.sonderchess.core.OfflinePuzzle,
         clean: Boolean,
-    ): Int {
+    ): Int? {
+        // Each puzzle counts once, however often you come back to it.
+        if (store.currentPuzzle == p.id && store.currentPuzzleScored) return null
+        store.currentPuzzleScored = true
         val before = puzzleRating
         puzzleRating =
             com.verisonder.sonderchess.core.PuzzleBook
@@ -184,8 +212,6 @@ object AppModel {
         store.puzzleRating = puzzleRating
         store.puzzleStreak = puzzleStreak
         store.puzzlesPlayed = store.puzzlesPlayed + 1
-        puzzlesSeen?.add(p.id)
-        scope.launch(Dispatchers.IO) { store.markPuzzleSeen(p.id) }
         return puzzleRating - before
     }
 

@@ -28,7 +28,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.core.Label
 import com.verisonder.sonderchess.core.Move
-import com.verisonder.sonderchess.core.OfflinePuzzle
 import com.verisonder.sonderchess.core.Pgn
 import com.verisonder.sonderchess.core.Position
 import com.verisonder.sonderchess.core.PuzzleBook
@@ -58,13 +56,41 @@ private data class PuzzleSpec(
 /** Where an attempt stands. */
 private enum class Attempt { Solving, Right, Wrong, Solved, Shown }
 
+/** Today's Chess.com puzzle, fetched once per app session. */
+private object DailyCache {
+    var spec: PuzzleSpec? = null
+}
+
+/** A puzzle's progress, kept per puzzle so leaving the tab and coming back changes nothing. */
+private class Progress(
+    start: Position,
+) {
+    val step = mutableIntStateOf(0)
+    val pos = mutableStateOf(start)
+    val last = mutableStateOf<Move?>(null)
+    val badge = mutableStateOf<Label?>(null)
+    val state = mutableStateOf(Attempt.Solving)
+    val helped = mutableStateOf(false)
+    val reported = mutableStateOf(false)
+    val hint = mutableStateOf<Int?>(null)
+
+    /** Where to put the board back to after a wrong move, if you left before it went back. */
+    var undo: Pair<Position, Move?>? = null
+
+    companion object {
+        private val kept = HashMap<String, Progress>()
+
+        fun of(spec: PuzzleSpec): Progress = kept.getOrPut(spec.key) { Progress(spec.start) }
+    }
+}
+
 /**
  * Two kinds of puzzle: the ones that come with the app (over 46,000 from Lichess, played
  * offline at your rating, which moves as you solve) and Chess.com's daily puzzle.
  */
 @Composable
 fun PuzzlesScreen() {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by AppModel::puzzleTab
     Column(Modifier.fillMaxSize()) {
         TopBar(if (tab == 0) "Puzzles" else "Daily Puzzle", onBack = null)
         Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -79,19 +105,15 @@ fun PuzzlesScreen() {
 @Composable
 private fun OfflinePuzzles() {
     val scope = rememberCoroutineScope()
-    var puzzle by remember { mutableStateOf<OfflinePuzzle?>(null) }
+    val puzzle = AppModel.currentPuzzle
     var change by remember { mutableStateOf<Int?>(null) }
     var missing by remember { mutableStateOf(false) }
 
     fun next() {
         change = null
-        scope.launch {
-            val p = AppModel.nextPuzzle()
-            puzzle = p
-            missing = p == null
-        }
+        scope.launch { missing = AppModel.nextPuzzle() == null }
     }
-    LaunchedEffect(Unit) { if (puzzle == null) next() }
+    LaunchedEffect(Unit) { if (puzzle == null) missing = AppModel.puzzleNow() == null }
     val p = puzzle
     Column(Modifier.fillMaxSize()) {
         // Your rating and streak.
@@ -120,7 +142,7 @@ private fun OfflinePuzzles() {
                 remember(p.id) {
                     PuzzleSpec(p.id, Position.fromFen(p.fen), p.moves, true, PuzzleBook.title(p.themes))
                 }
-            PuzzleBoard(spec, onResult = { clean -> change = AppModel.recordPuzzle(p, clean) }, onNext = ::next)
+            PuzzleBoard(spec, onResult = { clean -> AppModel.recordPuzzle(p, clean)?.let { change = it } }, onNext = ::next)
         }
     }
 }
@@ -128,7 +150,7 @@ private fun OfflinePuzzles() {
 @Composable
 private fun DailyPuzzle() {
     val scope = rememberCoroutineScope()
-    var spec by remember { mutableStateOf<PuzzleSpec?>(null) }
+    var spec by remember { mutableStateOf(DailyCache.spec) }
     var failed by remember { mutableStateOf(false) }
 
     fun load() {
@@ -143,6 +165,7 @@ private fun DailyPuzzle() {
                     null
                 }
             failed = spec == null
+            DailyCache.spec = spec
         }
     }
     LaunchedEffect(Unit) { if (spec == null) load() }
@@ -171,14 +194,16 @@ private fun PuzzleBoard(
     onNext: (() -> Unit)?,
 ) {
     val youWhite = if (spec.opponentFirst) !spec.start.white else spec.start.white
-    var step by remember(spec.key) { mutableIntStateOf(0) }
-    var pos by remember(spec.key) { mutableStateOf(spec.start) }
-    var last by remember(spec.key) { mutableStateOf<Move?>(null) }
-    var badge by remember(spec.key) { mutableStateOf<Label?>(null) }
-    var state by remember(spec.key) { mutableStateOf(Attempt.Solving) }
-    var helped by remember(spec.key) { mutableStateOf(false) }
-    var reported by remember(spec.key) { mutableStateOf(false) }
-    var hint by remember(spec.key) { mutableStateOf<Int?>(null) }
+    // Where you are in this puzzle; kept while you visit other tabs.
+    val progress = remember(spec.key) { Progress.of(spec) }
+    var step by progress.step
+    var pos by progress.pos
+    var last by progress.last
+    var badge by progress.badge
+    var state by progress.state
+    var helped by progress.helped
+    var reported by progress.reported
+    var hint by progress.hint
     var busy by remember(spec.key) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val shake = remember { Animatable(0f) }
@@ -238,6 +263,7 @@ private fun PuzzleBoard(
             badge = Label.Miss
             state = Attempt.Wrong
             busy = true
+            progress.undo = before to beforeLast
             scope.launch {
                 for (x in listOf(14f, -12f, 9f, -6f, 3f, 0f)) shake.animateTo(x, tween(45))
                 delay(550)
@@ -245,6 +271,23 @@ private fun PuzzleBoard(
                 last = beforeLast
                 badge = null
                 busy = false
+                progress.undo = null
+            }
+        }
+    }
+
+    // Coming back to the tab: finish what was cut short (a wrong move going back, a solution playing).
+    LaunchedEffect(spec.key) {
+        progress.undo?.let { (before, beforeLast) ->
+            pos = before
+            last = beforeLast
+            badge = null
+            progress.undo = null
+        }
+        if (state == Attempt.Shown) {
+            while (step < spec.answer.size) {
+                advance(spec.answer[step])
+                delay(600)
             }
         }
     }

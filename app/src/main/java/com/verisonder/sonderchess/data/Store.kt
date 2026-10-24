@@ -93,6 +93,14 @@ class Store(
         get() = prefs.getInt("puzzleStreak", 0)
         set(v) = prefs.edit().putInt("puzzleStreak", v).apply()
 
+    /** The offline puzzle on the board, and whether it has been scored already. */
+    var currentPuzzle: String?
+        get() = prefs.getString("currentPuzzle", null)
+        set(v) = prefs.edit().putString("currentPuzzle", v).apply()
+    var currentPuzzleScored: Boolean
+        get() = prefs.getBoolean("currentPuzzleScored", false)
+        set(v) = prefs.edit().putBoolean("currentPuzzleScored", v).apply()
+
     private val seenFile = File(context.filesDir, "puzzles_seen.txt")
 
     /** Puzzles already played, so they don't come back. */
