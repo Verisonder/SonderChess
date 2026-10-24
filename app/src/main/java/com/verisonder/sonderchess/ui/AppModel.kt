@@ -116,7 +116,7 @@ object AppModel {
                 start {
                     screen = Screen.Loading("Getting the game from Chess.com…")
                     val fetched = ChessCom.fetch(ref)
-                    chooseSide(fetched)
+                    chooseSide(fetched, text)
                 }
             Pgn.looksLikePgn(text) ->
                 start {
@@ -129,24 +129,65 @@ object AppModel {
                             "pgn-" + Integer.toHexString(game.toPgn().hashCode()),
                             "pgn",
                         )
-                    chooseSide(fetched)
+                    chooseSide(fetched, text)
                 }
             else -> screen = Screen.Failed("That doesn't look like a Chess.com game link or a PGN.")
         }
     }
 
-    private suspend fun chooseSide(f: FetchedGame) {
-        val known = store.username
-        val meWhite =
-            when {
-                known != null && f.white.name.equals(known, true) -> true
-                known != null && f.black.name.equals(known, true) -> false
-                f.black.computer && !f.white.computer -> true.also { store.username = f.white.name }
-                f.white.computer && !f.black.computer -> false.also { store.username = f.black.name }
-                else -> null
-            }
-        if (meWhite == null) screen = Screen.PickSide(f) else analyse(f, meWhite)
+    private suspend fun chooseSide(
+        f: FetchedGame,
+        shared: String,
+    ) {
+        val past = withContext(Dispatchers.IO) { store.list() }
+        val meWhite = whoAmI(f, shared, store.username, past.map { it.white.name to it.black.name })
+        if (meWhite == null) {
+            screen = Screen.PickSide(f)
+        } else {
+            store.username = if (meWhite) f.white.name else f.black.name
+            analyse(f, meWhite)
+        }
     }
+
+    /**
+     * Which side the person sharing played, without asking: a name learned before, the human
+     * against a bot, the opponent named in Chess.com's share text ("I Beat Aerial Powers!"),
+     * or the one name every earlier game has in common. Null when none of these tell.
+     */
+    fun whoAmI(
+        f: FetchedGame,
+        shared: String,
+        known: String?,
+        past: List<Pair<String, String>>,
+    ): Boolean? {
+        val w = f.white.name
+        val b = f.black.name
+        if (known != null && w.equals(known, true)) return true
+        if (known != null && b.equals(known, true)) return false
+        if (f.black.computer && !f.white.computer) return true
+        if (f.white.computer && !f.black.computer) return false
+        // Share text: the opponent is named, you are not.
+        val text = norm(shared.replace(Regex("""https?://\S+"""), " "))
+        val saysW = norm(w).let { it.length >= 3 && text.contains(it) }
+        val saysB = norm(b).let { it.length >= 3 && text.contains(it) }
+        if (saysB && !saysW) return true
+        if (saysW && !saysB) return false
+        // History: you are the one player in every game.
+        if (past.isNotEmpty()) {
+            val common =
+                past
+                    .map { setOf(it.first.lowercase(), it.second.lowercase()) }
+                    .reduce { acc, s -> acc intersect s }
+            val inW = w.lowercase() in common
+            val inB = b.lowercase() in common
+            if (inW && !inB) return true
+            if (inB && !inW) return false
+        }
+        return null
+    }
+
+    /** Lower case, letters and digits only: "Aerial-Powers-BOT" and "Aerial Powers" both read "aerialpowers…". */
+    private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
 
     fun pickSide(
         f: FetchedGame,
