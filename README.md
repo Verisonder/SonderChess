@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Verisonder/SonderChess/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Verisonder/SonderChess?include_prereleases&style=flat-square&color=81B64C&label=release"></a>
+  <a href="https://github.com/Verisonder/SonderChess/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Verisonder/SonderChess?style=flat-square&color=81B64C&label=release"></a>
   <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-81B64C?style=flat-square">
   <img alt="Stockfish 17.1" src="https://img.shields.io/badge/Stockfish-17.1-81B64C?style=flat-square">
   <a href="LICENSE"><img alt="GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-81B64C?style=flat-square"></a>
@@ -15,13 +15,17 @@
   Stockfish runs on the device. No sign-up, no subscription, no server.
 </p>
 
+<p align="center">
+  <a href="https://github.com/Verisonder/SonderChess/releases/latest"><b>⬇ Download the APK</b></a>
+</p>
+
 ---
 
 ## What it does
 
 Finish a game on Chess.com, tap the share button and pick **SonderChess**. The app fetches the game, runs Stockfish on your phone and gives you a full review: accuracy, a label for every move, the evaluation graph and the better moves, in a layout that will feel familiar if you know Chess.com's.
 
-Or just open it: give it your Chess.com username once and it shows your profile, ratings and every game you've played, ready to review with a tap.
+Or just open it and choose a Chess.com player: it shows the profile, ratings and every game played, ready to review with a tap.
 
 ## Features
 
@@ -30,16 +34,17 @@ Or just open it: give it your Chess.com username once and it shows your profile,
 | **Share to review** | Chess.com's share button for live, daily and bot games, a pasted game link, or any PGN. |
 | **Game review** | Accuracy for both players, an estimated game rating, the opening's name, the evaluation graph and a count of every move label. |
 | **Every move labelled** | Brilliant, Great, Best, Excellent, Good, Book, Inaccuracy, Mistake, Miss or Blunder. The coach says what each move did, an arrow shows the better move and **Best** plays it. **Next** jumps to the next moment that matters. |
-| **Your profile** | Ratings, followers, joined date and your full game history from Chess.com's public data, with your own and your opponents' pictures. Works from a username or a shared profile link, and knows which player you are. |
+| **Your games** | Choose a Chess.com player (by username or a shared profile link) to see the ratings, followers, joined date and full game history from Chess.com's public data, with everyone's pictures. Or skip it: everything else works without. |
 | **Stats** | Rating graphs, win, loss and draw records per time control over 7 days to all time, puzzle ratings, and the brilliant moves from your reviews. |
-| **Play** | A game against Stockfish at seven strengths, from beginner to full strength, reviewed when it ends. Or the custom board: move both sides, set up any position, and switch the engine on for its evaluation and best lines. |
+| **Play** | Bots from Pebble (400) to Titan (2500), plus SR, Mirror (plays at your rating) and Custom (any rating you set), or Stockfish at full strength. Hints, undo, draws by repetition, and a full review when the game ends. Or the custom board: move both sides, set up any position, and switch the engine on for its evaluation and best lines. |
 | **Puzzles** | Over 46,000 puzzles that work offline, picked at your level, with your own puzzle rating and streak. Plus Chess.com's daily puzzle. Hints, the solution and retry on both. |
+| **Review tab** | Paste a game link, a profile link or a PGN; the clipboard is only read when you tap Paste. |
 | **Make it yours** | 20 boards, 7 piece sets, backgrounds or your own photo, 5 sound sets (with a sound of its own for brilliant moves), coordinates, highlights and animation speed. |
 | **Works offline** | Reviews, your profile and your games stay on the phone and update when you're back online. Analysis never needs the internet. |
 
 ## Install
 
-Download the APK from the [releases](https://github.com/Verisonder/SonderChess/releases) and open it. Needs Android 8.0 or newer on a 64-bit ARM phone.
+Download `SonderChess-x.y.z.apk` from the [latest release](https://github.com/Verisonder/SonderChess/releases/latest) and open it. Needs Android 8.0 or newer on a 64-bit ARM phone.
 
 ## How it is built
 
