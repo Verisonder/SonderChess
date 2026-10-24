@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,11 +87,12 @@ private fun PlayChoice(onClose: () -> Unit) {
         title = { Text("Play", style = display(20)) },
         text = {
             Column {
-                ChoiceRow("Play a Bot", "A game against Stockfish, from beginner to full strength") {
+                val opened = remember { System.nanoTime() }
+                ChoiceRow(0, opened, "bot", "Play a Bot", "A game against Stockfish, from beginner to full strength") {
                     onClose()
                     AppModel.screen = Screen.Bot
                 }
-                ChoiceRow("Custom Board", "Move both sides, set up any position, ask Stockfish") {
+                ChoiceRow(1, opened, "board", "Custom Board", "Move both sides, set up any position, ask Stockfish") {
                     onClose()
                     AppModel.screen = Screen.Play
                 }
@@ -102,6 +105,9 @@ private fun PlayChoice(onClose: () -> Unit) {
 
 @Composable
 private fun ChoiceRow(
+    index: Int,
+    opened: Long,
+    icon: String,
     title: String,
     detail: String,
     onClick: () -> Unit,
@@ -109,6 +115,7 @@ private fun ChoiceRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .appear(index, listOf("choice", opened, index))
             .padding(vertical = 5.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(C.panel2)
@@ -116,6 +123,12 @@ private fun ChoiceRow(
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon == "bot") {
+            KindIcon("computer", 40.dp)
+        } else {
+            MiniBoard(Modifier.size(40.dp))
+        }
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = body(17, FontWeight.Bold))
             Text(detail, style = body(13, color = C.faint))
@@ -124,12 +137,63 @@ private fun ChoiceRow(
     }
 }
 
+/** A tiny 4x4 board in your board colours, with a knight on it. */
+@Composable
+private fun MiniBoard(modifier: Modifier) {
+    val knight = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.KNIGHT]
+    Canvas(modifier.clip(RoundedCornerShape(6.dp))) {
+        val s = size.width / 4f
+        for (r in 0..3) {
+            for (c in 0..3) {
+                drawRect(
+                    if ((r + c) % 2 ==
+                        0
+                    ) {
+                        AppModel.board.light
+                    } else {
+                        AppModel.board.dark
+                    },
+                    Offset(c * s, r * s),
+                    Size(s, s),
+                )
+            }
+        }
+        knight?.run {
+            translate(s, s) { draw(Size(s * 2f, s * 2f)) }
+        }
+    }
+}
+
 @Composable
 private fun TabBar(current: Screen) {
-    Row(Modifier.fillMaxWidth().background(C.bar).padding(vertical = 6.dp)) {
-        Tab("Home", "home", current == Screen.Home, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
-        Tab("Puzzles", "puzzles", current == Screen.Puzzles, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
-        Tab("More", "more", current == Screen.More, Modifier.weight(1f)) { AppModel.screen = Screen.More }
+    val index =
+        when (current) {
+            Screen.Puzzles -> 1
+            Screen.More -> 2
+            else -> 0
+        }
+    // A short green line glides over to the tab you pick.
+    val at by androidx.compose.animation.core.animateFloatAsState(
+        index.toFloat(),
+        androidx.compose.animation.core
+            .spring(dampingRatio = 0.7f, stiffness = 500f),
+        label = "tabline",
+    )
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().background(C.bar)) {
+        val w = maxWidth / 3
+        Box(
+            Modifier
+                .padding(start = w * at + w * 0.3f)
+                .width(w * 0.4f)
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(C.green),
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {
+            Tab("Home", "home", index == 0, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
+            Tab("Puzzles", "puzzles", index == 1, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
+            Tab("More", "more", index == 2, Modifier.weight(1f)) { AppModel.screen = Screen.More }
+        }
     }
 }
 
@@ -142,11 +206,32 @@ private fun Tab(
     onClick: () -> Unit,
 ) {
     val col by animateColorAsState(if (on) C.text else Color(0xFF8B8987), tween(160), label = "tab")
+    // The icon gives a little hop when its tab is picked.
+    val hop =
+        remember {
+            androidx.compose.animation.core
+                .Animatable(1f)
+        }
+    androidx.compose.runtime.LaunchedEffect(on) {
+        if (on) {
+            hop.snapTo(0.82f)
+            hop.animateTo(
+                1f,
+                androidx.compose.animation.core
+                    .spring(dampingRatio = 0.4f, stiffness = 500f),
+            )
+        }
+    }
     Column(
         modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Canvas(Modifier.size(28.dp)) {
+        Canvas(
+            Modifier.size(28.dp).graphicsLayer {
+                scaleX = hop.value
+                scaleY = hop.value
+            },
+        ) {
             val u = size.width / 24f
             when (icon) {
                 "home" -> {
@@ -234,17 +319,17 @@ fun MoreScreen() {
                 AppModel.setDepth(depths[it])
             }
             Section("Look")
-            MoreRow("Theme", "${AppModel.board.name} board · ${AppModel.pieces.name} pieces") { AppModel.screen = Screen.Theme }
+            MoreRow(1, "Theme", "${AppModel.board.name} board · ${AppModel.pieces.name} pieces") { AppModel.screen = Screen.Theme }
             Section("You")
-            MoreRow("Stats", "Ratings, records and puzzles") { AppModel.screen = Screen.Stats() }
-            MoreRow("Game History", "Every game, reviewed or not") { AppModel.screen = Screen.AllGames }
+            MoreRow(2, "Stats", "Ratings, records and puzzles") { AppModel.screen = Screen.Stats() }
+            MoreRow(3, "Game History", "Every game, reviewed or not") { AppModel.screen = Screen.AllGames }
             if (AppModel.username != null) {
-                MoreRow("Chess.com account", "${AppModel.username} · tap to disconnect", danger = true) { confirmDisconnect = true }
+                MoreRow(4, "Chess.com account", "${AppModel.username} · tap to disconnect", danger = true) { confirmDisconnect = true }
             } else {
-                MoreRow("Chess.com account", "Not connected · connect on Home") { AppModel.screen = Screen.Home }
+                MoreRow(5, "Chess.com account", "Not connected · connect on Home") { AppModel.screen = Screen.Home }
             }
             Section("About")
-            MoreRow("Source code", "github.com/Verisonder/SonderChess") {
+            MoreRow(6, "Source code", "github.com/Verisonder/SonderChess") {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Verisonder/SonderChess")))
             }
             Text(
@@ -263,6 +348,7 @@ private fun Section(title: String) {
 
 @Composable
 private fun MoreRow(
+    index: Int,
     title: String,
     detail: String,
     danger: Boolean = false,
@@ -271,6 +357,7 @@ private fun MoreRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .appear(index, "more" to index)
             .padding(vertical = 4.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(C.panel)

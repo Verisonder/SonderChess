@@ -1,5 +1,6 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.core.Move
@@ -96,6 +98,12 @@ private fun PuzzleBoard(
     var state by remember(puzzle) { mutableStateOf(Attempt.Solving) }
     var marks by remember(puzzle) { mutableStateOf<Map<Int, Color>>(emptyMap()) }
     val scope = rememberCoroutineScope()
+    // The board gives a short shake on a wrong move.
+    val shake =
+        remember {
+            androidx.compose.animation.core
+                .Animatable(0f)
+        }
 
     fun advance(m: Move) {
         Sounds.play(Sounds.eventFor(pos, m))
@@ -133,6 +141,15 @@ private fun PuzzleBoard(
             state = Attempt.Wrong
             marks = mapOf(m.from to Color(0x88FA412D), m.to to Color(0x88FA412D))
             scope.launch {
+                for (x in listOf(14f, -12f, 9f, -6f, 3f, 0f)) {
+                    shake.animateTo(
+                        x,
+                        androidx.compose.animation.core
+                            .tween(45),
+                    )
+                }
+            }
+            scope.launch {
                 delay(700)
                 if (state == Attempt.Wrong) marks = emptyMap()
             }
@@ -152,7 +169,7 @@ private fun PuzzleBoard(
                 flipped = !youWhite,
                 last = last,
                 arrows = emptyList(),
-                modifier = Modifier.size(maxWidth),
+                modifier = Modifier.size(maxWidth).graphicsLayer { translationX = shake.value * density },
                 enabled = (state == Attempt.Solving || state == Attempt.Wrong) && pos.white == youWhite,
                 marks = marks,
                 onMove = ::tryMove,
@@ -163,15 +180,34 @@ private fun PuzzleBoard(
             Coach(48.dp, reactTo = state)
             Spacer(Modifier.width(4.dp))
             Bubble(Modifier.weight(1f)) {
-                Text(
-                    when (state) {
-                        Attempt.Solving -> (if (youWhite) "White" else "Black") + " to move. Find the best move."
-                        Attempt.Wrong -> "Not that one. Try again."
-                        Attempt.Solved -> "Solved! Nicely done."
-                        Attempt.Failed -> "That's the solution. Try the next one."
+                androidx.compose.animation.AnimatedContent(
+                    state,
+                    transitionSpec = {
+                        (
+                            androidx.compose.animation.fadeIn(
+                                androidx.compose.animation.core
+                                    .tween(180),
+                            ) +
+                                androidx.compose.animation.scaleIn(initialScale = 0.92f)
+                        ).togetherWith(
+                            androidx.compose.animation.fadeOut(
+                                androidx.compose.animation.core
+                                    .tween(120),
+                            ),
+                        )
                     },
-                    style = body(15, FontWeight.Medium, C.bubbleText),
-                )
+                    label = "say",
+                ) { shown ->
+                    Text(
+                        when (shown) {
+                            Attempt.Solving -> (if (youWhite) "White" else "Black") + " to move. Find the best move."
+                            Attempt.Wrong -> "Not that one. Try again."
+                            Attempt.Solved -> "Solved! Nicely done."
+                            Attempt.Failed -> "That's the solution. Try the next one."
+                        },
+                        style = body(15, FontWeight.Medium, C.bubbleText),
+                    )
+                }
             }
         }
         Spacer(Modifier.weight(1f))

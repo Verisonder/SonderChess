@@ -1,5 +1,6 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -328,7 +329,13 @@ private fun EngineLines(
     pos: Position,
     eval: PositionEval?,
 ) {
-    Column(Modifier.fillMaxWidth().background(C.panel).padding(horizontal = 12.dp, vertical = 6.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(C.panel)
+            .animateContentSize()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
         if (eval == null || eval.lines.isEmpty()) {
             Text(if (pos.legalMoves().isEmpty()) "Game over" else "Thinking…", style = body(14, color = C.faint))
         } else {

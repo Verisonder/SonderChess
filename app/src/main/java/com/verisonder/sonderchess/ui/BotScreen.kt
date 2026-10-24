@@ -1,9 +1,12 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -77,13 +81,20 @@ fun BotScreen() {
                 Text("Strength", style = body(13, FontWeight.Bold, C.faint), modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
                 for ((i, l) in levels.withIndex()) {
                     val on = i == level
+                    val edge by androidx.compose.animation.animateColorAsState(if (on) C.green else C.panel, tween(180), label = "edge")
+                    val lift by androidx.compose.animation.core
+                        .animateFloatAsState(if (on) 1.02f else 1f, tween(180), label = "lift")
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                            .appear(i, "bot" to i)
+                            .graphicsLayer {
+                                scaleX = lift
+                                scaleY = lift
+                            }.padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(C.panel)
-                            .border(2.dp, if (on) C.green else C.panel, RoundedCornerShape(10.dp))
+                            .border(2.dp, edge, RoundedCornerShape(10.dp))
                             .clickable { level = i }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -188,83 +199,154 @@ private fun BotGame(
         )
     }
 
-    Column(Modifier.fillMaxSize()) {
-        TopBar("vs $botName", onBack = { AppModel.screen = Screen.Home })
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Coach(40.dp, reactTo = moves.size)
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(botName, style = body(16, FontWeight.Bold))
-                Text(level.rating, style = body(13, color = C.faint))
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            TopBar("vs $botName", onBack = { AppModel.screen = Screen.Home })
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Coach(40.dp, reactTo = moves.size)
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(botName, style = body(16, FontWeight.Bold))
+                    Text(level.rating, style = body(13, color = C.faint))
+                }
+                Spacer(Modifier.weight(1f))
+                if (!over && pos.white != youWhite) ThinkingDots()
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                InteractiveBoard(
+                    position = pos,
+                    flipped = !youWhite,
+                    last = moves.lastOrNull(),
+                    arrows = emptyList(),
+                    modifier = Modifier.size(maxWidth),
+                    enabled = !over && pos.white == youWhite && engine != null,
+                    onMove = ::play,
+                )
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(AppModel.username ?: "You", youWhite, 40.dp, AppModel.profile?.avatar)
+                Spacer(Modifier.width(10.dp))
+                Text(AppModel.username ?: "You", style = body(16, FontWeight.Bold))
             }
             Spacer(Modifier.weight(1f))
-            if (!over && pos.white != youWhite) Text("Thinking…", style = body(13, color = C.faint))
-        }
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            InteractiveBoard(
-                position = pos,
-                flipped = !youWhite,
-                last = moves.lastOrNull(),
-                arrows = emptyList(),
-                modifier = Modifier.size(maxWidth),
-                enabled = !over && pos.white == youWhite && engine != null,
-                onMove = ::play,
-            )
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(AppModel.username ?: "You", youWhite, 40.dp, AppModel.profile?.avatar)
-            Spacer(Modifier.width(10.dp))
-            Text(AppModel.username ?: "You", style = body(16, FontWeight.Bold))
-        }
-        Spacer(Modifier.weight(1f))
-        Row(
-            Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (over) {
-                GreenButton("Game Review", Modifier.weight(1f), height = 50.dp) {
-                    AppModel.reviewPlayed(finishedGame(), youWhite, botName)
+            Row(
+                Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (over) {
+                    GreenButton("Game Review", Modifier.weight(1f), height = 50.dp) {
+                        AppModel.reviewPlayed(finishedGame(), youWhite, botName)
+                    }
+                    TextButton(onClick = onNewGame) { Text("New Game", style = body(15, FontWeight.Bold, C.dim)) }
+                } else {
+                    // Take back your last move (and the bot's answer to it).
+                    TextButton(
+                        enabled = moves.isNotEmpty() && pos.white == youWhite,
+                        onClick = {
+                            val back = if (moves.size >= 2) 2 else 1
+                            positions = positions.dropLast(back)
+                            moves = moves.dropLast(back)
+                        },
+                    ) { Text("Undo", style = body(15, FontWeight.Bold, C.dim)) }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { resigned = true }) { Text("Resign", style = body(15, FontWeight.Bold, C.error)) }
                 }
-                TextButton(onClick = onNewGame) { Text("New Game", style = body(15, FontWeight.Bold, C.dim)) }
-            } else {
-                // Take back your last move (and the bot's answer to it).
-                TextButton(
-                    enabled = moves.isNotEmpty() && pos.white == youWhite,
-                    onClick = {
-                        val back = if (moves.size >= 2) 2 else 1
-                        positions = positions.dropLast(back)
-                        moves = moves.dropLast(back)
-                    },
-                ) { Text("Undo", style = body(15, FontWeight.Bold, C.dim)) }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = { resigned = true }) { Text("Resign", style = body(15, FontWeight.Bold, C.error)) }
+            }
+        }
+
+        // The end: a card that rises in over the board, like the game page's result card.
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showEnd && result != null,
+            enter = androidx.compose.animation.fadeIn(tween(200)),
+            exit = androidx.compose.animation.fadeOut(tween(150)),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color(0x99000000))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showEnd = false },
+                contentAlignment = Alignment.Center,
+            ) {
+                val rise =
+                    remember {
+                        androidx.compose.animation.core
+                            .Animatable(0f)
+                    }
+                LaunchedEffect(Unit) {
+                    rise.animateTo(
+                        1f,
+                        androidx.compose.animation.core
+                            .spring(dampingRatio = 0.7f, stiffness = 300f),
+                    )
+                }
+                Column(
+                    Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            translationY = (1f - rise.value) * 120f
+                            alpha = rise.value.coerceIn(0f, 1f)
+                        }.clip(RoundedCornerShape(18.dp))
+                        .background(C.panel)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        when (result) {
+                            1 -> "You Won!"
+                            -1 -> "You Lost"
+                            else -> "Draw"
+                        },
+                        style = display(30),
+                    )
+                    Text(finishedGame().headers["Termination"].orEmpty(), style = body(15, FontWeight.Bold, C.dim))
+                    Spacer(Modifier.height(14.dp))
+                    PieceDance()
+                    Spacer(Modifier.height(16.dp))
+                    GreenButton("Game Review") {
+                        showEnd = false
+                        AppModel.reviewPlayed(finishedGame(), youWhite, botName)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        TextButton(onClick = onNewGame) { Text("New Game", style = body(15, FontWeight.Bold, C.dim)) }
+                        TextButton(onClick = { showEnd = false }) { Text("Look at the board", style = body(15, FontWeight.Bold, C.dim)) }
+                    }
+                }
             }
         }
     }
+}
 
-    if (showEnd && result != null) {
-        AlertDialog(
-            onDismissRequest = { showEnd = false },
-            containerColor = C.panel,
-            title = {
-                Text(
-                    when (result) {
-                        1 -> "You Won!"
-                        -1 -> "You Lost"
-                        else -> "Draw"
-                    },
-                    style = display(22),
-                )
-            },
-            text = { Text(finishedGame().headers["Termination"].orEmpty(), style = body(15, color = C.dim)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showEnd = false
-                    AppModel.reviewPlayed(finishedGame(), youWhite, botName)
-                }) { Text("Game Review", style = body(15, FontWeight.Bold, C.green)) }
-            },
-            dismissButton = { TextButton(onClick = { showEnd = false }) { Text("Close", style = body(15, FontWeight.Bold, C.dim)) } },
-        )
+/** Three dots that pulse one after another while the bot thinks. */
+@Composable
+private fun ThinkingDots() {
+    val t =
+        androidx.compose.animation.core
+            .rememberInfiniteTransition(label = "dots")
+    val p by t.animateFloat(
+        0f,
+        3f,
+        androidx.compose.animation.core
+            .infiniteRepeatable(tween(900, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "dot",
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        for (i in 0..2) {
+            val on = (p - i).let { if (it < 0) it + 3 else it } < 1f
+            Box(
+                Modifier
+                    .padding(horizontal = 2.dp)
+                    .size(7.dp)
+                    .graphicsLayer {
+                        val k = if (on) 1.25f else 1f
+                        scaleX = k
+                        scaleY = k
+                    }.clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(if (on) C.text else C.faint),
+            )
+        }
     }
 }
