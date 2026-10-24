@@ -101,9 +101,16 @@ object ChessComApi {
         return y * 12 + mo < now.get(java.util.Calendar.YEAR) * 12 + now.get(java.util.Calendar.MONTH) + 1
     }
 
-    /** Reads [url], saving the answer; offline, falls back to the last saved answer. */
-    private fun get(url: String): String? {
+    /**
+     * Reads [url], saving the answer; offline, falls back to the last saved answer. With
+     * [savedOnly] it only reads the saved answer (null if there is none) and never goes online.
+     */
+    private fun get(
+        url: String,
+        savedOnly: Boolean = false,
+    ): String? {
         val file = cacheFile(url)
+        if (savedOnly) return file?.takeIf { it.exists() }?.readText()
         if (file != null && file.exists() && finishedMonth(url)) return file.readText()
         return try {
             fetch(url)?.also { body ->
@@ -146,10 +153,13 @@ object ChessComApi {
     private fun user(u: String) = URLEncoder.encode(u.trim().lowercase(), "UTF-8")
 
     /** Profile and ratings, or null when there is no such player. */
-    suspend fun profile(username: String): Profile? =
+    suspend fun profile(
+        username: String,
+        savedOnly: Boolean = false,
+    ): Profile? =
         withContext(Dispatchers.IO) {
-            val p = get(BASE + user(username))?.let { JSONObject(it) } ?: return@withContext null
-            val s = runCatching { get(BASE + user(username) + "/stats")?.let { JSONObject(it) } }.getOrNull()
+            val p = get(BASE + user(username), savedOnly)?.let { JSONObject(it) } ?: return@withContext null
+            val s = runCatching { get(BASE + user(username) + "/stats", savedOnly)?.let { JSONObject(it) } }.getOrNull()
 
             fun rating(key: String) =
                 s
@@ -258,9 +268,10 @@ object ChessComApi {
     private suspend fun monthsOf(
         username: String,
         count: Int,
+        savedOnly: Boolean = false,
     ): List<ArchiveGame> =
         withContext(Dispatchers.IO) {
-            val list = get(BASE + user(username) + "/games/archives")?.let { JSONObject(it) } ?: return@withContext emptyList()
+            val list = get(BASE + user(username) + "/games/archives", savedOnly)?.let { JSONObject(it) } ?: return@withContext emptyList()
             val arr = list.optJSONArray("archives") ?: return@withContext emptyList()
             val urls = (maxOf(0, arr.length() - count) until arr.length()).map { arr.getString(it) }
             val newest = urls.lastOrNull()
@@ -269,7 +280,7 @@ object ChessComApi {
                     .map { u ->
                         async {
                             months[u]?.takeIf { u != newest }
-                                ?: runCatching { get(u)?.let { parseMonth(it) } }.getOrNull()?.also { months[u] = it }
+                                ?: runCatching { get(u, savedOnly)?.let { parseMonth(it) } }.getOrNull()?.also { months[u] = it }
                                 ?: emptyList()
                         }
                     }.awaitAll()
@@ -280,7 +291,8 @@ object ChessComApi {
     suspend fun recentGames(
         username: String,
         months: Int = 2,
-    ): List<ArchiveGame> = monthsOf(username, months)
+        savedOnly: Boolean = false,
+    ): List<ArchiveGame> = monthsOf(username, months, savedOnly)
 
     /** Every game since [sinceMillis] (0 = all of them), newest first. */
     suspend fun gamesSince(

@@ -291,11 +291,21 @@ object AppModel {
         }
     }
 
-    /** Reloads your profile, ratings and recent games from Chess.com's public API. */
-    fun refreshAccount() {
+    /**
+     * Reloads your profile, ratings and recent games from Chess.com's public API. What was saved
+     * last time shows straight away, and the fresh copy replaces it quietly when it arrives; the
+     * spinner only shows when there is nothing to show yet or you pulled to refresh.
+     */
+    fun refreshAccount(pulled: Boolean = false) {
         val u = username ?: return
         scope.launch {
-            accountBusy = true
+            if (profile == null) {
+                runCatching {
+                    ChessComApi.profile(u, savedOnly = true)?.let { profile = it }
+                    ChessComApi.recentGames(u, archiveMonths, savedOnly = true).takeIf { it.isNotEmpty() }?.let { archive = it }
+                }
+            }
+            accountBusy = pulled || profile == null
             accountError = null
             try {
                 profile = ChessComApi.profile(u) ?: run {

@@ -173,7 +173,7 @@ fun HomeScreen() {
             isRefreshing = AppModel.accountBusy,
             onRefresh = {
                 AppModel.refresh()
-                AppModel.refreshAccount()
+                AppModel.refreshAccount(pulled = true)
             },
             modifier = Modifier.fillMaxSize(),
         ) {
