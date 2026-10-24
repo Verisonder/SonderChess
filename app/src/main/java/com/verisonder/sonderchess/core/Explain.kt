@@ -32,7 +32,7 @@ object Explain {
             }
         val line =
             when (mr.label) {
-                Label.Book -> review.opening?.let { "A known opening move. This is the $it." } ?: "A well-known opening move."
+                Label.Book -> mr.opening?.let { "A known opening move: the $it." } ?: "A well-known opening move."
                 Label.Brilliant ->
                     if (captured != null) {
                         "$you gave up material on purpose, and it works. A real sacrifice."
@@ -62,8 +62,8 @@ object Explain {
             after.isCheckmate() -> "Checkmate. Game over."
             before.isCastle(m) -> "Castling: the king is safer and a rook joins the game.$close"
             m.promo != Piece.NONE -> "The pawn makes it to the end and becomes a ${Piece.name(m.promo)}.$close"
-            captured != null && after.inCheck() -> "$you take the $captured, with check.$close"
-            captured != null -> "$you take the $captured.$close"
+            captured != null && after.inCheck() -> "$you ${verb(you, "take")} the $captured, with check.$close"
+            captured != null -> "$you ${verb(you, "take")} the $captured.$close"
             after.inCheck() -> "Check! The king has to deal with it.$close"
             isDevelopment(before, m) -> "Developing the $piece toward the center.$close"
             Math.abs(before[m.from]) == Piece.PAWN && fileOf(m.to) in 2..5 && before.fullmove <= 12 ->
@@ -85,9 +85,15 @@ object Explain {
             mr.evalAfter.score.let { (if (mr.white) -it else it) >= 9000 } -> "This walks into a forced mate. $better"
             hang >= 3 -> "It leaves $your ${hangingName(after, mr.white)} open to capture. $better"
             mr.label == Label.Inaccuracy -> "Not terrible, but it lets the advantage slip a little. $better"
-            else -> "$you gave away a big part of the advantage. $better"
+            else -> "This hands the other side a big edge. $better"
         }
     }
+
+    /** "You take" / "Your opponent takes". */
+    private fun verb(
+        subject: String,
+        base: String,
+    ) = if (subject == "You") base else base + "s"
 
     private fun hangingName(
         p: Position,

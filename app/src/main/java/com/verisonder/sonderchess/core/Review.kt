@@ -74,6 +74,8 @@ data class MoveReview(
     val accuracy: Double,
     /** The mover left a piece en prise worth this much (sacrifices), else 0. */
     val sacrificed: Int,
+    /** For book moves: the opening's name at this point. */
+    val opening: String? = null,
 )
 
 data class Review(
@@ -186,7 +188,7 @@ object Classifier {
             var label =
                 when {
                     bookHit != null -> Label.Book
-                    m.uci == bestUci -> Label.Best
+                    m.uci == bestUci || after.isCheckmate() -> Label.Best
                     loss <= 0.02 -> Label.Excellent
                     loss <= 0.05 -> Label.Good
                     loss <= 0.10 -> Label.Inaccuracy
@@ -226,6 +228,7 @@ object Classifier {
                     winAfter = wa,
                     accuracy = moveAccuracy(loss),
                     sacrificed = if (label == Label.Brilliant) hangAfter else 0,
+                    opening = bookHit?.second,
                 ),
             )
         }

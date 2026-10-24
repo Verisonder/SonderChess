@@ -49,14 +49,24 @@ class CoreTest {
         val game = Pgn.parse(File(dir, "nidal-vs-aerial-powers.pgn").readText())
         val txt = File(dir, "nidal-vs-aerial-powers.evals.json").readText()
         val evals =
-            Regex("\"lines\": \\[(.*?)\\]\\}").findAll(txt).map { r ->
-                PositionEval(
-                    Regex("\\{\"move\": \"(\\w+)\", \"(cp|mate)\": (-?\\d+)\\}").findAll(r.groupValues[1]).map {
-                        val v = it.groupValues[3].toInt()
-                        if (it.groupValues[2] == "cp") EngineLine(it.groupValues[1], cp = v) else EngineLine(it.groupValues[1], mate = v)
-                    }.toList(),
-                )
-            }.toList()
+            Regex("\"lines\": \\[(.*?)\\]\\}")
+                .findAll(txt)
+                .map { r ->
+                    PositionEval(
+                        Regex("\\{\"move\": \"(\\w+)\", \"(cp|mate)\": (-?\\d+)\\}")
+                            .findAll(r.groupValues[1])
+                            .map {
+                                val v = it.groupValues[3].toInt()
+                                if (it.groupValues[2] ==
+                                    "cp"
+                                ) {
+                                    EngineLine(it.groupValues[1], cp = v)
+                                } else {
+                                    EngineLine(it.groupValues[1], mate = v)
+                                }
+                            }.toList(),
+                    )
+                }.toList()
         val book = OpeningBook.parse(File("src/main/assets/openings.tsv").readText())
         val r = Classifier.review(game, evals, book)
         // Chess.com: 78.3 / 72.6, two brilliant moves for White (26.Rad1, 27.Rxe6), two book moves each.
