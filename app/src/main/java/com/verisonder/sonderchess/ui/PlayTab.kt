@@ -48,9 +48,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.core.Piece
 
-/** What the Play tab offers past the bots: Stockfish, and the custom board. */
-private const val ENGINE = 7
-private const val CUSTOM = 8
+private const val ENGINE = ENGINE_PICK
+private const val CUSTOM = BOARD_PICK
 
 /**
  * The Play tab: the chosen opponent greets you at the top, the bots below in a grid, then
@@ -58,14 +57,10 @@ private const val CUSTOM = 8
  */
 @Composable
 fun PlayTabScreen() {
-    var pick by remember { mutableIntStateOf(AppModel.botLevel.coerceIn(0, CUSTOM)) }
+    var pick by remember { mutableIntStateOf(AppModel.botLevel.coerceIn(0, DIAL_PICK)) }
+    var elo by remember { mutableIntStateOf(AppModel.dialElo) }
     var colour by remember { mutableIntStateOf(AppModel.botColour) } // 0 white, 1 random, 2 black
-    val bot =
-        when (pick) {
-            in bots.indices -> bots[pick]
-            ENGINE -> engineBot
-            else -> null
-        }
+    val bot = if (pick == DIAL_PICK) dialBot(elo) else botFor(pick)
     Column(Modifier.fillMaxSize()) {
         TopBar("Play", onBack = null)
         // The opponent says hello.
@@ -73,21 +68,15 @@ fun PlayTabScreen() {
             AnimatedContent(pick, transitionSpec = {
                 (fadeIn(tween(160)) + scaleIn(initialScale = 0.85f)).togetherWith(fadeOut(tween(100)))
             }, label = "face") { p ->
-                when (p) {
-                    in bots.indices -> BotFace(bots[p], 76.dp)
-                    ENGINE -> EngineChip(76.dp)
-                    else -> Coach(76.dp)
-                }
+                val b = if (p == DIAL_PICK) dialBot(elo) else botFor(p)
+                if (b != null) BotFace(b, 76.dp) else MiniBoardTile(76.dp)
             }
             Spacer(Modifier.width(4.dp))
             Bubble(Modifier.weight(1f)) {
                 AnimatedContent(pick, transitionSpec = { fadeIn(tween(160)).togetherWith(fadeOut(tween(100))) }, label = "hello") { p ->
                     Text(
-                        when (p) {
-                            in bots.indices -> bots[p].greeting
-                            ENGINE -> engineBot.greeting
-                            else -> "Move both sides, set up any position, and ask Stockfish."
-                        },
+                        (if (p == DIAL_PICK) dialBot(elo) else botFor(p))?.greeting
+                            ?: "Move both sides, set up any position, and ask Stockfish.",
                         style = body(15, FontWeight.Medium, C.bubbleText),
                     )
                 }
@@ -101,6 +90,14 @@ fun PlayTabScreen() {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             Section2("Bots")
             Grid(bots.size) { i -> Tile(i, pick == i, { pick = i }) { BotFace(bots[i], it) } }
+            Section2("Your level")
+            Grid(2) { i ->
+                val p = if (i == 0) MIRROR_PICK else DIAL_PICK
+                Tile(p, pick == p, { pick = p }) { BotFace(if (i == 0) mirrorBot() else dialBot(elo), it) }
+            }
+            androidx.compose.animation.AnimatedVisibility(pick == DIAL_PICK) {
+                EloDial(elo) { elo = it }
+            }
             Section2("Engine")
             Grid(1) { Tile(ENGINE, pick == ENGINE, { pick = ENGINE }) { EngineChip(it) } }
             Section2("Board")
@@ -120,6 +117,7 @@ fun PlayTabScreen() {
             GreenButton("Play", height = 56.dp) {
                 AppModel.botLevel = pick
                 AppModel.botColour = colour
+                AppModel.dialElo = elo
                 if (pick == CUSTOM) {
                     AppModel.screen = Screen.Play
                 } else {
@@ -230,11 +228,17 @@ fun BotFace(
     bot: Bot,
     size: Dp,
 ) {
-    if (bot.mark) {
-        Coach(size)
-        return
+    when (bot.look) {
+        "mark" -> {
+            Coach(size)
+            return
+        }
+        "engine" -> {
+            EngineChip(size)
+            return
+        }
     }
-    val i = bots.indexOf(bot).coerceAtLeast(0)
+    val i = bot.style
     val body = Color(bot.colour)
     val dark = lerp(body, Color.Black, 0.45f)
     val face = Color(0xFF26231F)
@@ -258,6 +262,39 @@ fun BotFace(
         drawRoundRect(body, Offset(1.9f * u, 2.2f * u), Size(8.2f * u, 7.8f * u), CornerRadius(1.6f * u))
         drawRoundRect(face, Offset(2.8f * u, 3.4f * u), Size(6.4f * u, 4.2f * u), CornerRadius(1f * u))
         val eye = Color.White
+        if (bot.look == "mirror") {
+            // A mirror for a face: a pale screen with two streaks of shine.
+            drawRoundRect(Color(0xFFDDE6EA), Offset(2.8f * u, 3.4f * u), Size(6.4f * u, 4.2f * u), CornerRadius(1f * u))
+            drawLine(Color.White, Offset(4f * u, 7f * u), Offset(6.4f * u, 3.8f * u), 0.7f * u)
+            drawLine(Color.White, Offset(6f * u, 7.2f * u), Offset(7.8f * u, 4.8f * u), 0.4f * u)
+            return@Canvas
+        }
+        if (bot.look == "dial") {
+            // A dial for a face, the needle set to the chosen strength.
+            val c = Offset(6f * u, 5.6f * u)
+            drawArc(
+                eye,
+                180f,
+                180f,
+                false,
+                Offset(3.6f * u, 3.6f * u),
+                Size(4.8f * u, 4.8f * u),
+                style =
+                    androidx.compose.ui.graphics.drawscope.Stroke(
+                        0.5f * u,
+                    ),
+            )
+            val t = ((bot.rating.toIntOrNull() ?: 1500) - 400) / 2600f
+            val a = Math.toRadians(180.0 + 180.0 * t.coerceIn(0f, 1f))
+            drawLine(
+                Color(0xFFFF5252),
+                c,
+                Offset(c.x + 2f * u * kotlin.math.cos(a).toFloat(), c.y + 2f * u * kotlin.math.sin(a).toFloat()),
+                0.5f * u,
+            )
+            drawCircle(eye, 0.45f * u, c)
+            return@Canvas
+        }
         when (i % 3) {
             0 -> { // round eyes
                 px(4f, 4.4f, 1.3f, 1.6f, eye)
@@ -287,6 +324,47 @@ fun BotFace(
         px(2.4f, 8.6f, 0.6f, 0.6f, dark)
         px(9f, 8.6f, 0.6f, 0.6f, dark)
         if (i >= 5) for (k in 0..2) drawCircle(Color(0xFFFFD54F), 0.45f * u, Offset((4.6f + k * 1.4f) * u, 9.2f * u))
+    }
+}
+
+/** The Custom bot's rating: a slider from 400 to 3000, with − and + for fine steps. */
+@Composable
+private fun EloDial(
+    elo: Int,
+    onChange: (Int) -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(C.panel)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Rating", style = body(15, FontWeight.Bold, C.dim), modifier = Modifier.weight(1f))
+            Text(
+                "−",
+                style = display(22, C.dim),
+                modifier = Modifier.clickable { onChange((elo - 50).coerceAtLeast(400)) }.padding(horizontal = 12.dp),
+            )
+            CountUp(elo, display(22), key = "dial")
+            Text(
+                "+",
+                style = display(22, C.dim),
+                modifier = Modifier.clickable { onChange((elo + 50).coerceAtMost(3000)) }.padding(horizontal = 12.dp),
+            )
+        }
+        androidx.compose.material3.Slider(
+            value = elo.toFloat(),
+            onValueChange = { onChange((it / 50).toInt() * 50) },
+            valueRange = 400f..3000f,
+            colors =
+                androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = C.green,
+                    activeTrackColor = C.green,
+                    inactiveTrackColor = C.panel2,
+                ),
+        )
     }
 }
 

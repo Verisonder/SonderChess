@@ -123,6 +123,9 @@ object AppModel {
     var botLevel = 2
     var botColour = 0
 
+    /** The rating set on the Custom bot. */
+    var dialElo = 1500
+
     /** Whether you have White in the bot game being played. */
     var botWhite = true
 

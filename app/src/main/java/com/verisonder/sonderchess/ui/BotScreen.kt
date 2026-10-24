@@ -53,29 +53,87 @@ data class Bot(
     val thinkMs: Int,
     val colour: Long,
     val greeting: String,
-    /** Drawn as the Verisonder SR mark instead of a robot. */
-    val mark: Boolean = false,
+    /** "robot" (with [style] picking eyes and mouth), "mark" (the SR), "engine", "mirror" or "dial". */
+    val look: String = "robot",
+    val style: Int = 0,
 )
 
 val bots =
     listOf(
-        Bot("Pebble", "400", 0, null, 80, 0xFF8BC34A, "Hi! I'm new at this too. Go easy on me?"),
-        Bot("Bolt", "800", 3, null, 150, 0xFFFFB74D, "Zap! I know how the pieces move. Mostly."),
-        Bot("Gizmo", "1200", 7, null, 300, 0xFF4FC3F7, "I've read a chess book. Let's see what you've got."),
-        Bot("Rook-E", "1600", 20, 1600, 500, 0xFFBA68C8, "Beep. Calculating your weaknesses…"),
-        Bot("Vector", "2000", 20, 2000, 700, 0xFFE57373, "I don't make many mistakes. Do you?"),
-        Bot("Titan", "2500", 20, 2500, 900, 0xFF90A4AE, "Masters fear me. Shall we begin?"),
+        Bot("Pebble", "400", 0, null, 80, 0xFF8BC34A, "Hi! I'm new at this too. Go easy on me?", style = 0),
+        Bot("Bolt", "800", 3, null, 150, 0xFFFFB74D, "Zap! I know how the pieces move. Mostly.", style = 1),
+        Bot("Gizmo", "1200", 7, null, 300, 0xFF4FC3F7, "I've read a chess book. Let's see what you've got.", style = 2),
+        Bot("Rook-E", "1600", 20, 1600, 500, 0xFFBA68C8, "Beep. Calculating your weaknesses…", style = 3),
+        Bot("Vector", "2000", 20, 2000, 700, 0xFFE57373, "I don't make many mistakes. Do you?", style = 4),
+        Bot("Titan", "2500", 20, 2500, 900, 0xFF90A4AE, "Masters fear me. Shall we begin?", style = 5),
         // The maker. Says it's a beginner; plays full-strength Stockfish and thinks the longest.
-        Bot("SR", "Beginner", 20, null, 2500, 0xFF379ED6, "Don't worry, I'm just a beginner. Be gentle with me!", mark = true),
+        Bot("SR", "Beginner", 20, null, 2500, 0xFF379ED6, "Don't worry, I'm just a beginner. Be gentle with me!", look = "mark"),
     )
 
 /** Stockfish itself, at full strength. */
-val engineBot = Bot("Stockfish", "Full strength", 20, null, 1200, 0xFF81B64C, "No mercy. No mistakes. Good luck.")
+val engineBot = Bot("Stockfish", "Full strength", 20, null, 1200, 0xFF81B64C, "No mercy. No mistakes. Good luck.", look = "engine")
+
+/** What the Play tab can pick besides the bots in [bots]. */
+const val ENGINE_PICK = 7
+const val BOARD_PICK = 8
+const val MIRROR_PICK = 9
+const val DIAL_PICK = 10
+
+/**
+ * Stockfish set to a rating. From 1320 up it uses Stockfish's own rating limit; below that, its
+ * skill level, scaled so 400 is the weakest it plays.
+ */
+fun botAt(
+    name: String,
+    elo: Int,
+    colour: Long,
+    greeting: String,
+    look: String,
+): Bot =
+    if (elo >= 1320) {
+        Bot(name, "$elo", 20, elo.coerceAtMost(3190), (300 + (elo - 1320) / 4).coerceAtMost(900), colour, greeting, look)
+    } else {
+        val skill = ((elo - 400).coerceAtLeast(0) * 9 / 920).coerceIn(0, 9)
+        Bot(name, "$elo", skill, null, 80 + skill * 25, colour, greeting, look)
+    }
+
+/** Your rating on Chess.com (rapid, else blitz, daily or bullet), or null if it isn't known. */
+fun yourRating(): Int? = AppModel.profile?.let { it.rapid ?: it.blitz ?: it.daily ?: it.bullet }
+
+/** Mirror: plays at your own rating. */
+fun mirrorBot(): Bot {
+    val r = yourRating()
+    return botAt(
+        "Mirror",
+        r ?: 1200,
+        0xFFB0BEC5,
+        if (r !=
+            null
+        ) {
+            "I play just like you. Rated $r, same as you. Let's see who blinks first."
+        } else {
+            "Connect your Chess.com account and I'll match your rating. Until then, I'm 1200."
+        },
+        "mirror",
+    )
+}
+
+/** Custom: plays at the rating you set. */
+fun dialBot(elo: Int): Bot = botAt("Custom", elo, 0xFF4DB6AC, "Set my rating anywhere from 400 to 3000. I'll play right at it.", "dial")
+
+/** The opponent for a Play tab pick, or null for the custom board. */
+fun botFor(pick: Int): Bot? =
+    bots.getOrNull(pick) ?: when (pick) {
+        ENGINE_PICK -> engineBot
+        MIRROR_PICK -> mirrorBot()
+        DIAL_PICK -> dialBot(AppModel.dialElo)
+        else -> null
+    }
 
 /** A game against the bot and colour picked on the Play tab; afterwards it can be reviewed. */
 @Composable
 fun BotScreen() {
-    val bot = bots.getOrNull(AppModel.botLevel) ?: engineBot
+    val bot = botFor(AppModel.botLevel) ?: engineBot
     BotGame(bot, AppModel.botWhite) { AppModel.screen = Screen.PlayTab }
 }
 
