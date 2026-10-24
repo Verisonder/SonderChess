@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
                             is Screen.Loading -> LoadingScreen(st.message)
                             is Screen.Analysing -> AnalysingScreen(AppModel.screen as? Screen.Analysing ?: st)
                             is Screen.PickSide -> PickSideScreen(st.fetched)
+                            is Screen.ConfirmMe -> ConfirmMeScreen(st.fetched, st.white)
                             is Screen.Failed -> FailedScreen(st.message)
                             is Screen.Summary -> if (o != null && o.saved.id == st.id) SummaryScreen(o) else HomeScreen()
                             is Screen.Board -> if (o != null && o.saved.id == st.id) ReviewScreen(o, st.ply) else HomeScreen()

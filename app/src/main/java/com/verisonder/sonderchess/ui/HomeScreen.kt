@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -178,7 +179,7 @@ fun HomeScreen() {
         ) {
             LazyColumn(Modifier.fillMaxSize(), state = list) {
                 item { ProfileHeader() }
-                if (AppModel.username == null) item { ConnectCard() }
+                if (AppModel.username == null && !AppModel.connectHidden) item { ConnectCard() }
                 if (AppModel.offline && AppModel.accountError == null) {
                     item {
                         Text(
@@ -196,7 +197,9 @@ fun HomeScreen() {
                 if (rows.isEmpty()) {
                     item {
                         Text(
-                            if (AppModel.username == null) {
+                            if (AppModel.username == null && AppModel.connectHidden) {
+                                "Share a game from Chess.com, or paste one in Review, and it shows up here."
+                            } else if (AppModel.username == null) {
                                 "Share a game from Chess.com, or connect your account above."
                             } else {
                                 "No games yet. Finish a game on Chess.com and it shows up here."
@@ -722,6 +725,10 @@ private fun ConnectCard() {
                 GreenButton(if (AppModel.accountBusy) "…" else "Connect", height = 52.dp) { AppModel.connect(name) }
             }
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("You can connect later in More.", style = body(12, color = C.faint), modifier = Modifier.weight(1f))
+            TextButton(onClick = { AppModel.hideConnect(true) }) { Text("Not now", style = body(14, FontWeight.Bold, C.dim)) }
+        }
     }
 }
 
@@ -1221,7 +1228,11 @@ fun PickSideScreen(f: FetchedGame) {
         Spacer(Modifier.height(18.dp))
         Text("Which one is you?", style = display(20))
         Spacer(Modifier.height(6.dp))
-        Text("Asked once. The coach talks to you about your moves.", style = body(14, color = C.dim), textAlign = TextAlign.Center)
+        Text(
+            "The coach talks to you about your moves, and your Chess.com profile shows on Home.",
+            style = body(14, color = C.dim),
+            textAlign = TextAlign.Center,
+        )
         Spacer(Modifier.height(24.dp))
         for (white in listOf(true, false)) {
             val p = if (white) f.white else f.black
@@ -1242,6 +1253,65 @@ fun PickSideScreen(f: FetchedGame) {
                     Text((if (white) "White" else "Black") + (p.rating?.let { " · $it" } ?: ""), style = body(13, color = C.faint))
                 }
             }
+        }
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = { AppModel.reviewAsGuest(f) }) {
+            Text("Neither, just review it", style = body(15, FontWeight.Bold, C.dim))
+        }
+    }
+}
+
+/**
+ * Before connecting an account from a shared game: the player you seem to be, and a choice.
+ * Yes connects it; "Yes, but don't connect" reviews it as yours without loading any profile;
+ * No asks which player you are.
+ */
+@Composable
+fun ConfirmMeScreen(
+    f: FetchedGame,
+    white: Boolean,
+) {
+    val p = if (white) f.white else f.black
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Coach(80.dp, reactTo = p.name)
+        Spacer(Modifier.height(18.dp))
+        Text("Is this you?", style = display(22))
+        Spacer(Modifier.height(18.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .appear(0, listOf("me", p.name))
+                .clip(RoundedCornerShape(12.dp))
+                .background(C.panel)
+                .border(2.dp, C.green, RoundedCornerShape(12.dp))
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Avatar(p.name, white, 52.dp, p.avatar)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(p.name, style = body(18, FontWeight.Bold))
+                Text((if (white) "White" else "Black") + (p.rating?.let { " · $it" } ?: ""), style = body(13, color = C.faint))
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Yes connects this Chess.com account, so your profile, ratings and games show on Home.",
+            style = body(13, color = C.faint),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(22.dp))
+        GreenButton("Yes, that's me", height = 54.dp) { AppModel.pickSide(f, white) }
+        Spacer(Modifier.height(6.dp))
+        TextButton(onClick = { AppModel.reviewWithoutConnecting(f, white) }) {
+            Text("Yes, but don't connect", style = body(15, FontWeight.Bold, C.dim))
+        }
+        TextButton(onClick = { AppModel.screen = Screen.PickSide(f) }) {
+            Text("No, that's not me", style = body(15, FontWeight.Bold, C.dim))
         }
     }
 }

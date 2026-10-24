@@ -77,6 +77,12 @@ sealed interface Screen {
         val fetched: FetchedGame,
     ) : Screen
 
+    /** "Is this you?" before connecting the account of the player you seem to be. */
+    data class ConfirmMe(
+        val fetched: FetchedGame,
+        val white: Boolean,
+    ) : Screen
+
     data class Summary(
         val id: String,
     ) : Screen
@@ -122,6 +128,15 @@ object AppModel {
     /** The opponent picked last time on the Play tab, and the colour choice (0 white, 1 random, 2 black). */
     var botLevel = 2
     var botColour = 0
+
+    /** Whether the Connect card on Home is hidden ("Not now"). */
+    var connectHidden by mutableStateOf(false)
+        private set
+
+    fun hideConnect(hidden: Boolean) {
+        connectHidden = hidden
+        store.connectHidden = hidden
+    }
 
     /** The rating set on the Custom bot. */
     var dialElo = 1500
@@ -339,6 +354,7 @@ object AppModel {
         highlightLast = store.highlightLast
         showArrows = store.showArrows
         animation = store.animation
+        connectHidden = store.connectHidden
         puzzleRating = store.puzzleRating
         puzzleStreak = store.puzzleStreak
         Sounds.init(app)
@@ -556,13 +572,10 @@ object AppModel {
         val meWhite = whoAmI(f, shared, store.username, past.map { it.white.name to it.black.name })
         if (meWhite == null) {
             screen = Screen.PickSide(f)
+        } else if (store.username == null) {
+            // Ask before connecting anyone's account.
+            screen = Screen.ConfirmMe(f, meWhite)
         } else {
-            val name = if (meWhite) f.white.name else f.black.name
-            if (store.username == null) {
-                store.username = name
-                username = name
-                refreshAccount()
-            }
             analyse(f, meWhite)
         }
     }
@@ -612,6 +625,19 @@ object AppModel {
 
     /** Lower case, letters and digits only: "Aerial-Powers-BOT" and "Aerial Powers" both read "aerialpowers…". */
     private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
+
+    /** Review the game as the player on [white]'s side without connecting their account. */
+    fun reviewWithoutConnecting(
+        f: FetchedGame,
+        white: Boolean,
+    ) {
+        start { analyse(f, white) }
+    }
+
+    /** Not your game: review it from White's side and keep nothing. */
+    fun reviewAsGuest(f: FetchedGame) {
+        start { analyse(f, meWhite = true, keep = false) }
+    }
 
     fun pickSide(
         f: FetchedGame,

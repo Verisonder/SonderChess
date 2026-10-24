@@ -77,6 +77,11 @@ class Store(
         get() = prefs.getInt("depth", 16)
         set(v) = prefs.edit().putInt("depth", v).apply()
 
+    /** You said "Not now" to connecting a Chess.com account. */
+    var connectHidden: Boolean
+        get() = prefs.getBoolean("connectHidden", false)
+        set(v) = prefs.edit().putBoolean("connectHidden", v).apply()
+
     /** Your rating on the puzzles that come with the app, and how many you have done. */
     var puzzleRating: Int
         get() = prefs.getInt("puzzleRating", 1200)

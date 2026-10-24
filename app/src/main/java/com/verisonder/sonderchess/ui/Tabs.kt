@@ -355,7 +355,10 @@ fun MoreScreen() {
             if (AppModel.username != null) {
                 MoreRow(4, "Chess.com account", "${AppModel.username} · tap to disconnect", danger = true) { confirmDisconnect = true }
             } else {
-                MoreRow(5, "Chess.com account", "Not connected · connect on Home") { AppModel.screen = Screen.Home }
+                MoreRow(5, "Connect Chess.com", "Show your profile, ratings and games on Home") {
+                    AppModel.hideConnect(false)
+                    AppModel.screen = Screen.Home
+                }
             }
             Section("About")
             MoreRow(6, "Source code", "github.com/Verisonder/SonderChess") {
