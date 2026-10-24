@@ -6,6 +6,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -71,7 +73,60 @@ object ChessComApi {
     private val avatars = ConcurrentHashMap<String, String>()
     private val noAvatar = ConcurrentHashMap.newKeySet<String>()
 
+    /** Where answers are kept so your profile and games still show offline. Set at start-up. */
+    @Volatile
+    var cacheDir: File? = null
+
+    /** True when the last answer came from the saved copy because Chess.com couldn't be reached. */
+    @Volatile
+    var offline = false
+        private set
+
+    private fun cacheFile(url: String): File? =
+        cacheDir?.let { dir ->
+            val name =
+                java.security.MessageDigest
+                    .getInstance("SHA-1")
+                    .digest(url.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+            File(dir, name)
+        }
+
+    /** A month archive from before this month: its games never change once the month is over. */
+    private fun finishedMonth(url: String): Boolean {
+        val m = Regex("""/games/(\d{4})/(\d{2})$""").find(url) ?: return false
+        val now = java.util.Calendar.getInstance()
+        val y = m.groupValues[1].toInt()
+        val mo = m.groupValues[2].toInt()
+        return y * 12 + mo < now.get(java.util.Calendar.YEAR) * 12 + now.get(java.util.Calendar.MONTH) + 1
+    }
+
+    /** Reads [url], saving the answer; offline, falls back to the last saved answer. */
     private fun get(url: String): String? {
+        val file = cacheFile(url)
+        if (file != null && file.exists() && finishedMonth(url)) return file.readText()
+        return try {
+            fetch(url)?.also { body ->
+                offline = false
+                file?.let { f ->
+                    runCatching {
+                        val tmp = File(f.path + ".tmp")
+                        tmp.writeText(body)
+                        tmp.renameTo(f)
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            if (file != null && file.exists()) {
+                offline = true
+                file.readText()
+            } else {
+                throw e
+            }
+        }
+    }
+
+    private fun fetch(url: String): String? {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 15000
         conn.readTimeout = 20000

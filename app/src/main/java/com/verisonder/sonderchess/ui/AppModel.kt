@@ -264,8 +264,28 @@ object AppModel {
         showArrows = store.showArrows
         animation = store.animation
         Sounds.init(app)
+        ChessComApi.cacheDir = java.io.File(app.filesDir, "chesscom").apply { mkdirs() }
         refresh()
         refreshAccount()
+        watchNetwork()
+    }
+
+    /** True while what's shown is the copy saved on the phone, because Chess.com can't be reached. */
+    var offline by mutableStateOf(false)
+        private set
+
+    /** When the phone gets back online after showing saved data, load the fresh copy. */
+    private fun watchNetwork() {
+        val cm = app.getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        runCatching {
+            cm.registerDefaultNetworkCallback(
+                object : android.net.ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: android.net.Network) {
+                        if (offline || accountError != null) scope.launch { refreshAccount() }
+                    }
+                },
+            )
+        }
     }
 
     /** Reloads your profile, ratings and recent games from Chess.com's public API. */
@@ -280,6 +300,7 @@ object AppModel {
                     null
                 }
                 archive = ChessComApi.recentGames(u, archiveMonths)
+                offline = ChessComApi.offline
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

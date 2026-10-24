@@ -180,6 +180,15 @@ fun HomeScreen() {
             LazyColumn(Modifier.fillMaxSize(), state = list) {
                 item { ProfileHeader() }
                 if (AppModel.username == null) item { ConnectCard() }
+                if (AppModel.offline && AppModel.accountError == null) {
+                    item {
+                        Text(
+                            "Offline · showing what was saved last time. It updates when you're back online.",
+                            style = body(13, color = C.faint),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
                 AppModel.accountError?.let { err ->
                     item { Text(err, style = body(13, color = C.error), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
                 }
@@ -237,7 +246,8 @@ private fun HomeTopBar(
     solid: Float,
     onSettings: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
+    var pasting by remember { mutableStateOf(false) }
+    if (pasting) PasteDialog { pasting = false }
     Row(
         Modifier.fillMaxWidth().background(C.bar.copy(alpha = solid)).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -248,20 +258,81 @@ private fun HomeTopBar(
             modifier = Modifier.weight(1f).padding(start = 8.dp).graphicsLayer { alpha = solid },
         )
         Box(
-            Modifier.size(44.dp).clip(CircleShape).clickable {
-                val t = clipboard.getText()?.text.orEmpty()
-                if (t.isBlank()) {
-                    AppModel.screen = Screen.Failed("The clipboard is empty. Copy a Chess.com game link or a PGN first.")
-                } else {
-                    AppModel.handleText(t)
-                }
-            },
+            Modifier.size(44.dp).clip(CircleShape).clickable { pasting = true },
             contentAlignment = Alignment.Center,
         ) { PasteIcon() }
         Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
             GearIcon()
         }
     }
+}
+
+/**
+ * Asks before touching the clipboard: type or paste a game link, profile link or PGN. The
+ * clipboard is only read when you tap "Paste", and Review only lights up for something it can open.
+ */
+@Composable
+private fun PasteDialog(onClose: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    var text by remember { mutableStateOf("") }
+    val usable =
+        text.isNotBlank() &&
+            (
+                com.verisonder.sonderchess.data.ChessCom
+                    .find(text) != null ||
+                    com.verisonder.sonderchess.data.ChessComApi
+                        .findMember(text) != null ||
+                    com.verisonder.sonderchess.core.Pgn
+                        .looksLikePgn(text)
+            )
+    AlertDialog(
+        onDismissRequest = onClose,
+        containerColor = C.panel,
+        title = { Text("Review a game", style = display(18)) },
+        text = {
+            Column {
+                Text("A Chess.com game link, a profile link or a PGN.", style = body(14, color = C.dim))
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { Text("chess.com/game/…") },
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = C.green,
+                            unfocusedBorderColor = C.line,
+                            cursorColor = C.green,
+                        ),
+                )
+                if (text.isNotBlank() && !usable) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("That isn't a Chess.com game link, profile link or PGN.", style = body(13, color = C.error))
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(C.bg)
+                        .clickable { text = clipboard.getText()?.text.orEmpty() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PasteIcon()
+                    Spacer(Modifier.width(8.dp))
+                    Text("Paste", style = body(14, FontWeight.Bold))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = usable, onClick = {
+                onClose()
+                AppModel.handleText(text)
+            }) { Text("Review", color = if (usable) C.green else C.faint) }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Cancel", color = C.dim) } },
+    )
 }
 
 /** Every game: reviewed ones and your archive, with "Load older games" for earlier months. */
