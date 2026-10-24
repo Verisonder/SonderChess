@@ -35,6 +35,9 @@ gradle assembleDebug
 
 - [Stockfish](https://stockfishchess.org) (GPL-3.0), the chess engine.
 - Chess pieces based on the [RhosGFX](https://github.com/lichess-org/lila/tree/master/public/piece/rhosgfx) set (CC0), recoloured.
+- Other piece sets: Classic by Colin M.L. Burnett (GPL-2.0+), Merida by Armando Hernandez Marroquin (GPL-2.0+),
+  Chessnut by Alexis Luengas (Apache 2.0), Mono by Maxime Chupin (GPL-3.0+), Spatial by Maurizio Monge (MIT),
+  Warm is RhosGFX in its own colours (CC0). All via [lichess-org/lila](https://github.com/lichess-org/lila/blob/master/COPYING.md).
 - Opening names from [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0).
 - Fonts: Montserrat and Roboto (SIL Open Font License).
 - Badge symbols from Google's Material icons (Apache 2.0).

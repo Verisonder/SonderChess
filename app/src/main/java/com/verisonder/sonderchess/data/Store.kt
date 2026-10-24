@@ -36,6 +36,15 @@ class Store(
         get() = prefs.getString("username", null)
         set(v) = prefs.edit().putString("username", v).apply()
 
+    /** Chosen board colours and piece set (ids from Themes). */
+    var boardTheme: String?
+        get() = prefs.getString("board", null)
+        set(v) = prefs.edit().putString("board", v).apply()
+
+    var pieceSet: String?
+        get() = prefs.getString("pieces", null)
+        set(v) = prefs.edit().putString("pieces", v).apply()
+
     /** Engine depth per position. */
     var depth: Int
         get() = prefs.getInt("depth", 16)

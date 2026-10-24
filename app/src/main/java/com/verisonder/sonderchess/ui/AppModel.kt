@@ -33,6 +33,8 @@ sealed interface Screen {
 
     data object AllGames : Screen
 
+    data object Theme : Screen
+
     data class Loading(
         val message: String,
     ) : Screen
@@ -92,6 +94,22 @@ object AppModel {
     var username by mutableStateOf<String?>(null)
         private set
 
+    /** The board colours and piece set in use. */
+    var board by mutableStateOf(Themes.boards[0])
+        private set
+    var pieces by mutableStateOf(Themes.pieces[0])
+        private set
+
+    fun setBoard(t: BoardTheme) {
+        board = t
+        store.boardTheme = t.id
+    }
+
+    fun setPieces(p: PieceSet) {
+        pieces = p
+        store.pieceSet = p.id
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private var book: OpeningBook? = null
@@ -103,6 +121,8 @@ object AppModel {
         app = context.applicationContext
         store = Store(app)
         username = store.username
+        board = Themes.board(store.boardTheme)
+        pieces = Themes.pieceSet(store.pieceSet)
         refresh()
         refreshAccount()
     }

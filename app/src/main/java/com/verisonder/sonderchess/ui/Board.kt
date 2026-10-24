@@ -32,7 +32,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import com.verisonder.sonderchess.R
 import com.verisonder.sonderchess.core.Label
 import com.verisonder.sonderchess.core.Move
 import com.verisonder.sonderchess.core.Position
@@ -45,17 +44,13 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-/** The 12 piece images, indexed by piece int (+6 offset). */
+/** The 12 piece images of [set], indexed by piece int (+6 offset). */
 @Composable
-fun piecePainters(): Array<Painter?> {
-    val w =
-        listOf(R.drawable.piece_wp, R.drawable.piece_wn, R.drawable.piece_wb, R.drawable.piece_wr, R.drawable.piece_wq, R.drawable.piece_wk)
-    val b =
-        listOf(R.drawable.piece_bp, R.drawable.piece_bn, R.drawable.piece_bb, R.drawable.piece_br, R.drawable.piece_bq, R.drawable.piece_bk)
+fun piecePainters(set: PieceSet = AppModel.pieces): Array<Painter?> {
     val out = arrayOfNulls<Painter>(13)
     for (i in 0 until 6) {
-        out[6 + i + 1] = painterResource(w[i])
-        out[6 - i - 1] = painterResource(b[i])
+        out[6 + i + 1] = painterResource(set.white[i])
+        out[6 - i - 1] = painterResource(set.black[i])
     }
     return out
 }
@@ -119,8 +114,10 @@ fun ChessBoard(
     flipped: Boolean,
     modifier: Modifier = Modifier,
     animate: Boolean = true,
+    theme: BoardTheme = AppModel.board,
+    set: PieceSet = AppModel.pieces,
 ) {
-    val pieces = piecePainters()
+    val pieces = piecePainters(set)
     val tm = rememberTextMeasurer()
     val key = position.fen()
     val shown = remember { arrayOf(position) }
@@ -160,14 +157,14 @@ fun ChessBoard(
         }
         for (sq in 0 until 64) {
             val light = (fileOf(sq) + rankOf(sq)) % 2 == 1
-            drawRect(if (light) C.light else C.dark, origin(sq), Size(s, s))
+            drawRect(if (light) theme.light else theme.dark, origin(sq), Size(s, s))
         }
         if (last != null) {
             val tint = (label?.colour() ?: Color(0xFFF7EC74)).copy(alpha = 0.5f * (0.35f + 0.65f * glide.value))
             drawRect(tint, origin(last.from), Size(s, s))
             drawRect(tint, origin(last.to), Size(s, s))
         }
-        drawCoordinates(tm, s, flipped)
+        drawCoordinates(tm, s, flipped, theme)
         val a = anim
         val t = glide.value
         val moving =
@@ -230,6 +227,7 @@ private fun DrawScope.drawCoordinates(
     tm: TextMeasurer,
     s: Float,
     flipped: Boolean,
+    theme: BoardTheme,
 ) {
     val style = TextStyle(fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = (s / 5.5f).toSp())
     for (i in 0..7) {
@@ -237,14 +235,19 @@ private fun DrawScope.drawCoordinates(
         val rank = if (flipped) i + 1 else 8 - i
         val leftFile = if (flipped) 7 else 0
         val rankOnLight = (leftFile + rank - 1) % 2 == 1
-        drawText(tm, rank.toString(), Offset(s * 0.05f, i * s + s * 0.02f), style.copy(color = if (rankOnLight) C.dark else C.light))
+        drawText(
+            tm,
+            rank.toString(),
+            Offset(s * 0.05f, i * s + s * 0.02f),
+            style.copy(color = if (rankOnLight) theme.dark else theme.light),
+        )
         val file = if (flipped) 7 - i else i
         val bottomRank = if (flipped) 7 else 0
         val fileOnLight = (file + bottomRank) % 2 == 1
         val t = tm.measure(('a' + file).toString(), style)
         drawText(
             t,
-            color = if (fileOnLight) C.dark else C.light,
+            color = if (fileOnLight) theme.dark else theme.light,
             topLeft =
                 Offset(
                     (i + 1) * s - t.size.width - s * 0.05f,

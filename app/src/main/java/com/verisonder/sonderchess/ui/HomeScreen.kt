@@ -434,8 +434,10 @@ private fun StatsRow(p: Profile) {
                     .background(Color(0xFF2A2825))
                     .padding(bottom = 3.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF433F3C), Color(0xFF383532))))
-                    .padding(10.dp),
+                    .background(
+                        androidx.compose.ui.graphics.Brush
+                            .verticalGradient(listOf(Color(0xFF433F3C), Color(0xFF383532))),
+                    ).padding(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -957,6 +959,55 @@ private fun SettingsDialog(onClose: () -> Unit) {
                             contentAlignment = Alignment.Center,
                         ) { Text(n, style = body(14, FontWeight.Bold, if (on) C.text else C.faint)) }
                     }
+                }
+                Spacer(Modifier.height(18.dp))
+                Text("Look", style = body(13, FontWeight.Bold, C.faint))
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(C.bg)
+                        .clickable {
+                            onClose()
+                            AppModel.screen = Screen.Theme
+                        }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Canvas(Modifier.size(28.dp).clip(RoundedCornerShape(4.dp))) {
+                        val h = size.width / 2f
+                        val t = AppModel.board
+                        drawRect(
+                            t.light,
+                            Offset.Zero,
+                            androidx.compose.ui.geometry
+                                .Size(h, h),
+                        )
+                        drawRect(
+                            t.dark,
+                            Offset(h, 0f),
+                            androidx.compose.ui.geometry
+                                .Size(h, h),
+                        )
+                        drawRect(
+                            t.dark,
+                            Offset(0f, h),
+                            androidx.compose.ui.geometry
+                                .Size(h, h),
+                        )
+                        drawRect(
+                            t.light,
+                            Offset(h, h),
+                            androidx.compose.ui.geometry
+                                .Size(h, h),
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Theme", style = body(16, FontWeight.Bold))
+                        Text("${AppModel.board.name} board · ${AppModel.pieces.name} pieces", style = body(13, color = C.faint))
+                    }
+                    Text("›", style = body(22, color = C.dim))
                 }
                 Spacer(Modifier.height(18.dp))
                 Text("Chess.com account", style = body(13, FontWeight.Bold, C.faint))
