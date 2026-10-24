@@ -418,6 +418,12 @@ object AppModel {
         f: FetchedGame,
         shared: String,
     ) {
+        val known = store.username
+        if (known != null && !f.white.name.equals(known, true) && !f.black.name.equals(known, true)) {
+            // Someone else's game: review it from White's side and keep nothing afterwards.
+            analyse(f, meWhite = true, keep = false)
+            return
+        }
         val past = withContext(Dispatchers.IO) { store.list() }
         val meWhite = whoAmI(f, shared, store.username, past.map { it.white.name to it.black.name })
         if (meWhite == null) {
@@ -470,6 +476,12 @@ object AppModel {
         return null
     }
 
+    /** Fills in profile pictures Chess.com's game data left out, from each player's public profile. */
+    private suspend fun withAvatars(f: FetchedGame): FetchedGame {
+        suspend fun pic(p: Player) = if (p.avatar != null) p else p.copy(avatar = runCatching { ChessComApi.avatar(p.name) }.getOrNull())
+        return f.copy(white = pic(f.white), black = pic(f.black))
+    }
+
     /** Lower case, letters and digits only: "Aerial-Powers-BOT" and "Aerial Powers" both read "aerialpowers…". */
     private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
 
@@ -483,16 +495,22 @@ object AppModel {
         start { analyse(f, white) }
     }
 
+    /**
+     * Analyses [f]. Your own games ([keep]) are saved to your history; anyone else's game is
+     * only held while you look at it.
+     */
     private suspend fun analyse(
-        f: FetchedGame,
+        fetched: FetchedGame,
         meWhite: Boolean,
+        keep: Boolean = true,
     ) {
-        val id = "${f.kind}-${f.id}"
+        val id = "${fetched.kind}-${fetched.id}"
         val depth = store.depth
         store.load(id)?.takeIf { it.depth >= depth }?.let {
             open(it)
             return
         }
+        val f = withAvatars(fetched)
         val positions = f.game.positions()
         screen = Screen.Analysing(f.white.name, f.black.name, 0, positions.size)
         val evals = ArrayList<PositionEval>(positions.size)
@@ -524,9 +542,11 @@ object AppModel {
                 review.accuracyWhite,
                 review.accuracyBlack,
             )
-        synchronized(reviews) { reviews[id + "@" + saved.savedAt] = review }
-        withContext(Dispatchers.IO) { store.save(saved) }
-        refresh()
+        if (keep) {
+            synchronized(reviews) { reviews[id + "@" + saved.savedAt] = review }
+            withContext(Dispatchers.IO) { store.save(saved) }
+            refresh()
+        }
         opened = Opened(saved, review)
         screen = Screen.Summary(id)
     }
@@ -549,6 +569,16 @@ object AppModel {
             val review = reviewOf(saved)
             opened = Opened(saved, review)
             screen = Screen.Summary(saved.id)
+            // Games saved before pictures were kept: fetch them once and save them with the game.
+            if (saved.white.avatar == null || saved.black.avatar == null) {
+                val f = withAvatars(FetchedGame(saved.game, saved.white, saved.black, "", ""))
+                if (f.white.avatar != saved.white.avatar || f.black.avatar != saved.black.avatar) {
+                    val s = saved.copy(white = f.white, black = f.black)
+                    if (opened?.saved?.id == s.id) opened = opened?.copy(saved = s)
+                    withContext(Dispatchers.IO) { store.save(s) }
+                    refresh()
+                }
+            }
         }
     }
 
@@ -593,8 +623,10 @@ object AppModel {
         val g: Game = o.saved.game
         val f = FetchedGame(g, o.saved.white, o.saved.black, o.saved.id.substringAfter('-'), o.saved.id.substringBefore('-'))
         start {
-            store.delete(o.saved.id)
-            analyse(f, o.saved.meWhite)
+            val known = username
+            val mine = known == null || f.white.name.equals(known, true) || f.black.name.equals(known, true)
+            if (mine) store.delete(o.saved.id)
+            analyse(f, o.saved.meWhite, keep = mine)
         }
     }
 }
