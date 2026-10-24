@@ -24,8 +24,8 @@ data class PieceSet(
 object Themes {
     val boards =
         listOf(
+            BoardTheme("brown", "Brown", Color(0xFFEDD5AF), Color(0xFFB88662)),
             BoardTheme("green", "Green", Color(0xFFEBECD0), Color(0xFF739552)),
-            BoardTheme("brown", "Brown", Color(0xFFF0D9B5), Color(0xFFB58863)),
             BoardTheme("walnut", "Walnut", Color(0xFFE8C99B), Color(0xFF9C6A3E)),
             BoardTheme("navy", "Navy", Color(0xFF6B7A90), Color(0xFF2A3346)),
             BoardTheme("ice", "Ice", Color(0xFFE6EEF5), Color(0xFF8FB2CF)),

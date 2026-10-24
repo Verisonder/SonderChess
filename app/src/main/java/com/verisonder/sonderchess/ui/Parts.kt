@@ -136,13 +136,7 @@ fun Coach(
             },
     ) {
         val w = this.size.width
-        drawRoundRect(
-            Color(0xFF111214),
-            cornerRadius =
-                androidx.compose.ui.geometry
-                    .CornerRadius(w * 0.22f),
-        )
-        val k = w / 256f * 0.86f
+        val k = w / 256f
         val pad = (w - 256f * k) / 2f
         val g = glow.value
         withTransform({
