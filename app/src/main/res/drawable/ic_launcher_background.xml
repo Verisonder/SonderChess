@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SonderChess icon background: a wooden board (tools/make_icon.py) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+        <path android:fillColor="#9A6A45" android:pathData="M0 0h108v108h-108z" />
+        <path android:fillColor="#C9996B" android:pathData="M0 0h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M54 0h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M27 27h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M81 27h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M0 54h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M54 54h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M27 81h27v27h-27z" />
+        <path android:fillColor="#C9996B" android:pathData="M81 81h27v27h-27z" />
+</vector>

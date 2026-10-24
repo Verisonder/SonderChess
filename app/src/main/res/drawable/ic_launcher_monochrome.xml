@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon version: the SR mark and base in one colour (tools/make_icon.py) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="28.112" android:translateY="16.697" android:scaleX="0.20225" android:scaleY="0.20225">
+        <path android:fillColor="#FFFFFF" android:pathData="M24 112h88v16h-88zM96 128h16v12h-16zM24 128h27v44h-27zM9 172h108v16h-108zM80 188h28v30h-28zM16 218h90v14h-90zM32 204h18v14h-18z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M139 97h80v15h-80zM139 112h26v60h-26zM196 112h27v45h-27zM147 149h91v23h-91zM139 172h107v15h-107zM139 187h26v45h-26zM196 187h27v45h-27z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M8 232h240a6 6 0 0 1 6 6v18a6 6 0 0 1 -6 6h-240a6 6 0 0 1 -6 -6v-18a6 6 0 0 1 6 -6z" />
+    </group>
+</vector>
