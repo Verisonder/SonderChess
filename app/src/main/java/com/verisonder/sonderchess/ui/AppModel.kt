@@ -107,13 +107,14 @@ object AppModel {
     var archive by mutableStateOf<List<ArchiveGame>>(emptyList())
         private set
     var accountBusy by mutableStateOf(false)
+        private set
 
     /** Whether Stockfish was on last time the analysis board was open. */
     var playEngine = false
 
     /** The bot strength picked last time. */
     var botLevel = 2
-        private set
+
     var accountError by mutableStateOf<String?>(null)
         private set
     var username by mutableStateOf<String?>(null)

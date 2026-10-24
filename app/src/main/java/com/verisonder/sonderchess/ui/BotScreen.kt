@@ -1,5 +1,6 @@
 package com.verisonder.sonderchess.ui
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
