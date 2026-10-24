@@ -10,9 +10,12 @@ import com.verisonder.sonderchess.core.OpeningBook
 import com.verisonder.sonderchess.core.Pgn
 import com.verisonder.sonderchess.core.PositionEval
 import com.verisonder.sonderchess.core.Review
+import com.verisonder.sonderchess.data.ArchiveGame
 import com.verisonder.sonderchess.data.ChessCom
+import com.verisonder.sonderchess.data.ChessComApi
 import com.verisonder.sonderchess.data.FetchedGame
 import com.verisonder.sonderchess.data.Player
+import com.verisonder.sonderchess.data.Profile
 import com.verisonder.sonderchess.data.SavedGame
 import com.verisonder.sonderchess.data.Store
 import com.verisonder.sonderchess.engine.Stockfish
@@ -27,6 +30,8 @@ import kotlinx.coroutines.withContext
 
 sealed interface Screen {
     data object Home : Screen
+
+    data object AllGames : Screen
 
     data class Loading(
         val message: String,
@@ -75,6 +80,18 @@ object AppModel {
     var history by mutableStateOf<List<SavedGame>>(emptyList())
         private set
 
+    /** Your Chess.com profile and recent games, when a username is known. */
+    var profile by mutableStateOf<Profile?>(null)
+        private set
+    var archive by mutableStateOf<List<ArchiveGame>>(emptyList())
+        private set
+    var accountBusy by mutableStateOf(false)
+        private set
+    var accountError by mutableStateOf<String?>(null)
+        private set
+    var username by mutableStateOf<String?>(null)
+        private set
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private var book: OpeningBook? = null
@@ -85,7 +102,103 @@ object AppModel {
         if (::store.isInitialized) return
         app = context.applicationContext
         store = Store(app)
+        username = store.username
         refresh()
+        refreshAccount()
+    }
+
+    /** Reloads your profile, ratings and recent games from Chess.com's public API. */
+    fun refreshAccount() {
+        val u = username ?: return
+        scope.launch {
+            accountBusy = true
+            accountError = null
+            try {
+                profile = ChessComApi.profile(u) ?: run {
+                    accountError = "Chess.com has no player called $u."
+                    null
+                }
+                archive = ChessComApi.recentGames(u, archiveMonths)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                accountError = "Couldn't reach Chess.com. Pull down to try again."
+            } finally {
+                accountBusy = false
+            }
+        }
+    }
+
+    /** How many months of your archive are loaded; "Load more" adds to it. */
+    private var archiveMonths = 2
+    var loadingMore by mutableStateOf(false)
+        private set
+
+    fun loadMore() {
+        val u = username ?: return
+        if (loadingMore) return
+        archiveMonths += 3
+        scope.launch {
+            loadingMore = true
+            try {
+                archive = ChessComApi.recentGames(u, archiveMonths)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                accountError = "Couldn't reach Chess.com."
+            } finally {
+                loadingMore = false
+            }
+        }
+    }
+
+    /** Connects a Chess.com account by username (checked against Chess.com first). */
+    fun connect(name: String) {
+        val u = name.trim().removePrefix("@")
+        if (u.isEmpty()) return
+        scope.launch {
+            accountBusy = true
+            accountError = null
+            val p = runCatching { ChessComApi.profile(u) }.getOrNull()
+            accountBusy = false
+            if (p == null) {
+                accountError = "Couldn't find $u on Chess.com."
+            } else {
+                store.username = p.username
+                username = p.username
+                profile = p
+                refreshAccount()
+            }
+        }
+    }
+
+    fun disconnect() {
+        store.username = null
+        username = null
+        profile = null
+        archive = emptyList()
+    }
+
+    /** Reviews a game from your archive (opens it straight away if already reviewed). */
+    fun reviewArchived(g: ArchiveGame) {
+        store.load(g.id)?.let {
+            open(it)
+            return
+        }
+        start {
+            val game = Pgn.parse(g.pgn)
+            val me = username.orEmpty()
+            val (wa, ba) = withContext(Dispatchers.IO) { ChessComApi.avatar(g.white) to ChessComApi.avatar(g.black) }
+            val fetched =
+                FetchedGame(
+                    game,
+                    Player(g.white, g.whiteRating, false, wa),
+                    Player(g.black, g.blackRating, false, ba),
+                    g.id.substringAfter('-'),
+                    g.id.substringBefore('-'),
+                )
+            analyse(fetched, !g.black.equals(me, true))
+        }
     }
 
     val depth: Int get() = store.depth
@@ -111,7 +224,12 @@ object AppModel {
     /** Shared or pasted text: a Chess.com link or a PGN. */
     fun handleText(text: String) {
         val ref = ChessCom.find(text)
+        val member = ChessComApi.findMember(text)
         when {
+            ref == null && member != null -> {
+                screen = Screen.Home
+                connect(member)
+            }
             ref != null ->
                 start {
                     screen = Screen.Loading("Getting the game from Chess.com…")
@@ -144,7 +262,12 @@ object AppModel {
         if (meWhite == null) {
             screen = Screen.PickSide(f)
         } else {
-            store.username = if (meWhite) f.white.name else f.black.name
+            val name = if (meWhite) f.white.name else f.black.name
+            if (store.username == null) {
+                store.username = name
+                username = name
+                refreshAccount()
+            }
             analyse(f, meWhite)
         }
     }
@@ -194,6 +317,8 @@ object AppModel {
         white: Boolean,
     ) {
         store.username = if (white) f.white.name else f.black.name
+        username = store.username
+        refreshAccount()
         start { analyse(f, white) }
     }
 

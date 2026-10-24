@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
                         val o = AppModel.opened
                         when (st) {
                             Screen.Home -> HomeScreen()
+                            Screen.AllGames -> AllGamesScreen()
                             is Screen.Loading -> LoadingScreen(st.message)
                             is Screen.Analysing -> AnalysingScreen(AppModel.screen as? Screen.Analysing ?: st)
                             is Screen.PickSide -> PickSideScreen(st.fetched)

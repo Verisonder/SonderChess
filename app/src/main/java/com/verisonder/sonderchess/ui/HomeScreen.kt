@@ -2,6 +2,7 @@ package com.verisonder.sonderchess.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,182 +20,820 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.R
 import com.verisonder.sonderchess.core.Position
+import com.verisonder.sonderchess.data.ArchiveGame
+import com.verisonder.sonderchess.data.ChessComApi
 import com.verisonder.sonderchess.data.FetchedGame
+import com.verisonder.sonderchess.data.Profile
 import com.verisonder.sonderchess.data.SavedGame
-import java.text.DateFormat
-import java.util.Date
 
+/** One line in Game History: a reviewed game, a game from your archive, or both. */
+private data class HistoryItem(
+    val id: String,
+    val kind: String,
+    val opponent: String,
+    val opponentRating: Int?,
+    val opponentAvatar: String?,
+    /** 1 win, 0 draw, -1 loss, null unknown. */
+    val result: Int?,
+    val accuracy: Double?,
+    val time: Long,
+    val saved: SavedGame?,
+    val archived: ArchiveGame?,
+)
+
+private val drawResults = setOf("agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient")
+
+private fun buildHistory(
+    saved: List<SavedGame>,
+    archive: List<ArchiveGame>,
+    me: String?,
+): List<HistoryItem> {
+    val byId = saved.associateBy { it.id }
+    val out = ArrayList<HistoryItem>()
+    for (g in archive) {
+        val meWhite = !g.black.equals(me, true)
+        val mine = if (meWhite) g.whiteResult else g.blackResult
+        val s = byId[g.id]
+        out.add(
+            HistoryItem(
+                id = g.id,
+                kind = g.timeClass.ifBlank { "rapid" },
+                opponent = if (meWhite) g.black else g.white,
+                opponentRating = if (meWhite) g.blackRating else g.whiteRating,
+                opponentAvatar = s?.let { if (meWhite) it.black.avatar else it.white.avatar },
+                result =
+                    when {
+                        mine == "win" -> 1
+                        mine in drawResults -> 0
+                        else -> -1
+                    },
+                accuracy =
+                    s?.let { if (it.meWhite) it.accuracyWhite else it.accuracyBlack }
+                        ?: if (meWhite) g.whiteAccuracy else g.blackAccuracy,
+                time = g.endTime,
+                saved = s,
+                archived = g,
+            ),
+        )
+    }
+    val inArchive = archive.map { it.id }.toSet()
+    for (s in saved) {
+        if (s.id in inArchive) continue
+        val r = s.game.result
+        val opp = if (s.meWhite) s.black else s.white
+        out.add(
+            HistoryItem(
+                id = s.id,
+                kind = s.id.substringBefore('-').let { if (it == "live") "rapid" else it },
+                opponent = opp.name,
+                opponentRating = opp.rating,
+                opponentAvatar = opp.avatar,
+                result =
+                    when (r) {
+                        "1/2-1/2" -> 0
+                        "1-0" -> if (s.meWhite) 1 else -1
+                        "0-1" -> if (s.meWhite) -1 else 1
+                        else -> null
+                    },
+                accuracy = if (s.meWhite) s.accuracyWhite else s.accuracyBlack,
+                time = s.savedAt,
+                saved = s,
+                archived = null,
+            ),
+        )
+    }
+    return out.sortedByDescending { it.time }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
-    val clipboard = LocalClipboardManager.current
-    var depth by remember { mutableIntStateOf(AppModel.depth) }
+    var settings by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedGame?>(null) }
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Image(painterResource(R.drawable.piece_wn), null, Modifier.size(40.dp))
-                Spacer(Modifier.width(10.dp))
-                Text("SonderChess", style = display(26))
+    val rows = rememberHistory()
+    val p = AppModel.profile
+    PullToRefreshBox(
+        isRefreshing = AppModel.accountBusy,
+        onRefresh = {
+            AppModel.refresh()
+            AppModel.refreshAccount()
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        LazyColumn(Modifier.fillMaxSize()) {
+            item { ProfileHeader(onSettings = { settings = true }) }
+            if (AppModel.username == null) item { ConnectCard() }
+            AppModel.accountError?.let { err ->
+                item { Text(err, style = body(13, color = C.error), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+            }
+            if (p != null) item { StatsRow(p) }
+            item { HistoryTitle(p?.totalGames ?: rows.size) }
+            if (rows.isEmpty()) {
+                item {
+                    Text(
+                        if (AppModel.username == null) {
+                            "Share a game from Chess.com, or connect your account above."
+                        } else {
+                            "No games yet. Finish a game on Chess.com and it shows up here."
+                        },
+                        style = body(14, color = C.faint),
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+            items(rows.take(5), key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
+            if (rows.size > 5 || AppModel.username != null) {
+                item {
+                    Box(
+                        Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(C.panel2)
+                            .clickable { AppModel.screen = Screen.AllGames },
+                        contentAlignment = Alignment.Center,
+                    ) { Text("View All Games", style = body(17, FontWeight.Bold, C.dim)) }
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+    if (settings) SettingsDialog { settings = false }
+    deleting?.let { g -> DeleteDialog(g) { deleting = null } }
+}
+
+/** Every game: reviewed ones and your archive, with "Load older games" for earlier months. */
+@Composable
+fun AllGamesScreen() {
+    var deleting by remember { mutableStateOf<SavedGame?>(null) }
+    val rows = rememberHistory()
+    Column(Modifier.fillMaxSize()) {
+        TopBar("Game History", onBack = { AppModel.screen = Screen.Home })
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(rows, key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
+            if (AppModel.username != null) {
+                item {
+                    Box(
+                        Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(C.panel2)
+                            .clickable { AppModel.loadMore() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (AppModel.loadingMore) {
+                            CircularProgressIndicator(color = C.green, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                        } else {
+                            Text("Load older games", style = body(17, FontWeight.Bold, C.dim))
+                        }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+    deleting?.let { g -> DeleteDialog(g) { deleting = null } }
+}
+
+@Composable
+private fun rememberHistory(): List<HistoryItem> =
+    remember(AppModel.history, AppModel.archive, AppModel.username) {
+        buildHistory(AppModel.history, AppModel.archive, AppModel.username)
+    }
+
+@Composable
+private fun DeleteDialog(
+    g: SavedGame,
+    onClose: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Delete this review?") },
+        text = { Text("${g.white.name} vs ${g.black.name}") },
+        confirmButton = {
+            TextButton(onClick = {
+                AppModel.delete(g.id)
+                onClose()
+            }) { Text("Delete") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Keep") } },
+        containerColor = C.panel,
+    )
+}
+
+@Composable
+private fun HistoryTitle(count: Int) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Game History", style = display(19))
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(C.panel2).padding(horizontal = 8.dp, vertical = 2.dp)) {
+            Text(count.toString(), style = body(13, FontWeight.Bold, C.dim))
+        }
+        Spacer(Modifier.weight(1f))
+        Text("Accuracy", style = body(15, color = C.dim))
+    }
+}
+
+/** Banner of pieces, big picture, name, flag, real name, location, then joined/followers/games. */
+@Composable
+private fun ProfileHeader(onSettings: () -> Unit) {
+    val p = AppModel.profile
+    val name = AppModel.username
+    val clipboard = LocalClipboardManager.current
+    Column {
+        Box(Modifier.fillMaxWidth().height(200.dp)) {
+            PieceBanner(Modifier.fillMaxWidth().height(170.dp))
+            Row(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                // Paste a game link or PGN from the clipboard.
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).clickable {
+                        val t = clipboard.getText()?.text.orEmpty()
+                        if (t.isBlank()) {
+                            AppModel.screen = Screen.Failed("The clipboard is empty. Copy a Chess.com game link or a PGN first.")
+                        } else {
+                            AppModel.handleText(t)
+                        }
+                    },
+                    contentAlignment = Alignment.Center,
+                ) { PasteIcon() }
+                Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
+                    GearIcon()
+                }
+            }
+            Row(Modifier.align(Alignment.BottomStart).padding(start = 16.dp), verticalAlignment = Alignment.Bottom) {
+                if (name != null) {
+                    Avatar(name, true, 112.dp, p?.avatar)
+                } else {
+                    Box(Modifier.size(112.dp).clip(RoundedCornerShape(8.dp)).background(C.panel2), contentAlignment = Alignment.Center) {
+                        Image(painterResource(R.drawable.piece_wn), null, Modifier.size(84.dp))
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.padding(bottom = 6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(name ?: "SonderChess", style = display(24), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        p?.country?.let { Text(" " + flag(it), style = body(20)) }
+                    }
+                    p?.name?.let { Text(it, style = body(17, FontWeight.Bold, C.dim), maxLines = 1) }
+                    p?.location?.let { Text(it, style = body(14, color = C.faint), maxLines = 1) }
+                }
             }
         }
-        item {
-            Column(
-                Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(C.panel)
-                    .padding(18.dp),
-            ) {
-                Text("Review a game", style = body(18, FontWeight.Bold))
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "On Chess.com, finish a game and tap the share button at the top. Pick SonderChess and the review starts.",
-                    style = body(14, color = C.dim),
+        if (p != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
+                p.joined?.let {
+                    Fact(
+                        java.text.DateFormat
+                            .getDateInstance(java.text.DateFormat.MEDIUM)
+                            .format(java.util.Date(it)),
+                        "Joined",
+                        Modifier.weight(1.3f),
+                    )
+                }
+                p.followers?.let { Fact(it.toString(), "Followers", Modifier.weight(1f)) }
+                p.totalGames?.let { Fact(it.toString(), "Games", Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Fact(
+    value: String,
+    label: String,
+    modifier: Modifier,
+) {
+    Column(modifier) {
+        Text(value, style = body(19, FontWeight.Bold), maxLines = 1)
+        Text(label, style = body(15, color = C.faint))
+    }
+}
+
+/** A country code as its flag emoji ("MA" → Morocco's flag). */
+private fun flag(code: String): String {
+    val c = code.uppercase()
+    if (c.length != 2 || !c.all { it in 'A'..'Z' }) return ""
+    return String(Character.toChars(0x1F1E6 + (c[0] - 'A'))) + String(Character.toChars(0x1F1E6 + (c[1] - 'A')))
+}
+
+/** Two rows of pieces on a dark board, fading into the page. */
+@Composable
+private fun PieceBanner(modifier: Modifier) {
+    val pieces = piecePainters()
+    Canvas(modifier) {
+        val s = size.height / 2f
+        val cols = (size.width / s).toInt() + 1
+        val back = intArrayOf(4, 5, 6, 3, 2, 4, 5, 6)
+        for (r in 0..1) {
+            for (c in 0 until cols) {
+                val light = (r + c) % 2 == 0
+                drawRect(
+                    if (light) Color(0xFF6E5A47) else Color(0xFF4F3F31),
+                    Offset(c * s, r * s),
+                    androidx.compose.ui.geometry
+                        .Size(s, s),
                 )
-                Spacer(Modifier.height(14.dp))
-                GreenButton("Paste link or PGN", height = 50.dp) {
-                    val t = clipboard.getText()?.text.orEmpty()
-                    if (t.isBlank()) {
-                        AppModel.screen =
-                            Screen.Failed(
-                                "The clipboard is empty. Copy a Chess.com game link or a PGN first.",
-                            )
-                    } else {
-                        AppModel.handleText(t)
+                val type = if (r == 0) 1 else back[c % back.size]
+                val painter = pieces[-type + 6] ?: continue
+                translate(c * s + s * 0.08f, r * s + s * 0.08f) {
+                    with(painter) {
+                        draw(
+                            androidx.compose.ui.geometry
+                                .Size(s * 0.84f, s * 0.84f),
+                            alpha = 0.55f,
+                        )
                     }
                 }
             }
         }
-        item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
+        drawRect(
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                0f to C.bg.copy(alpha = 0.15f),
+                0.55f to C.bg.copy(alpha = 0.45f),
+                1f to C.bg,
+            ),
+        )
+    }
+}
+
+/** Stats cards: Daily, Rapid, Bullet, Blitz, Puzzles; slides sideways. */
+@Composable
+private fun StatsRow(p: Profile) {
+    val cards =
+        listOfNotNull(
+            p.daily?.let { Triple("daily", "Daily", it) },
+            p.rapid?.let { Triple("rapid", "Rapid", it) },
+            p.bullet?.let { Triple("bullet", "Bullet", it) },
+            p.blitz?.let { Triple("blitz", "Blitz", it) },
+            p.puzzles?.let { Triple("puzzles", "Puzzles", it) },
+        )
+    if (cards.isEmpty()) return
+    Text("Stats", style = display(19), modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 10.dp))
+    LazyRow(
+        contentPadding =
+            androidx.compose.foundation.layout
+                .PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(cards.size) { i ->
+            val (kind, label, value) = cards[i]
+            Column(
+                Modifier
+                    .size(118.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(C.panel2)
+                    .padding(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                KindIcon(kind, 44.dp)
+                Spacer(Modifier.height(8.dp))
+                Text(value.toString(), style = display(20))
+                Text(label, style = body(14, FontWeight.Medium, C.faint))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PasteIcon() {
+    Canvas(Modifier.size(24.dp)) {
+        val u = size.width / 24f
+        val st = Stroke(2f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(
+            C.dim,
+            Offset(5f * u, 4.5f * u),
+            androidx.compose.ui.geometry
+                .Size(14f * u, 17f * u),
+            androidx.compose.ui.geometry
+                .CornerRadius(2f * u),
+            style = st,
+        )
+        drawRoundRect(
+            C.dim,
+            Offset(9f * u, 2.5f * u),
+            androidx.compose.ui.geometry
+                .Size(6f * u, 4f * u),
+            androidx.compose.ui.geometry
+                .CornerRadius(1f * u),
+        )
+        drawLine(C.dim, Offset(8.5f * u, 11f * u), Offset(15.5f * u, 11f * u), 2f * u, StrokeCap.Round)
+        drawLine(C.dim, Offset(8.5f * u, 15f * u), Offset(13.5f * u, 15f * u), 2f * u, StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun ConnectCard() {
+    var name by remember { mutableStateOf("") }
+    Column(
+        Modifier
+            .padding(16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(C.panel)
+            .padding(16.dp),
+    ) {
+        Text("Connect your Chess.com", style = display(16))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Your games and ratings show up here, ready to review. Type your username, or share your Chess.com profile to SonderChess.",
+            style = body(13, color = C.dim),
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                placeholder = { Text("Username") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, autoCorrectEnabled = false),
+                keyboardActions = KeyboardActions(onGo = { AppModel.connect(name) }),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = C.green,
+                        unfocusedBorderColor = C.line,
+                        cursorColor = C.green,
+                    ),
+            )
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.width(110.dp)) {
+                GreenButton(if (AppModel.accountBusy) "…" else "Connect", height = 52.dp) { AppModel.connect(name) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GameRow(
+    h: HistoryItem,
+    onLong: () -> Unit,
+) {
+    val avatarUrl by produceState(h.opponentAvatar, h.opponent) {
+        if (value == null && h.kind != "pgn") value = ChessComApi.avatar(h.opponent)
+    }
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = {
+                        when {
+                            h.saved != null -> AppModel.open(h.saved)
+                            h.archived != null -> AppModel.reviewArchived(h.archived)
+                        }
+                    },
+                    onLongClick = onLong,
+                ).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            KindIcon(h.kind, 28.dp)
+            Spacer(Modifier.width(12.dp))
+            Avatar(h.opponent, h.kind == "computer", 40.dp, avatarUrl)
+            Spacer(Modifier.width(12.dp))
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    h.opponent,
+                    style = body(16, FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                h.opponentRating?.let { Text(" ($it)", style = body(16, color = C.dim), maxLines = 1) }
+            }
+            Spacer(Modifier.width(8.dp))
+            ResultIcon(h.result)
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) {
+                if (h.accuracy != null) {
+                    Text("%.1f".format(h.accuracy), style = body(16, color = C.text))
+                } else {
+                    ReviewButton {
+                        h.archived?.let { AppModel.reviewArchived(it) }
+                    }
+                }
+            }
+        }
+        Box(
+            Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(C.line.copy(alpha = 0.6f)),
+        )
+    }
+}
+
+/** The green "review this game" key with a starred badge. */
+@Composable
+private fun ReviewButton(onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(52.dp, 48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(C.greenDark)
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(45.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(C.green),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(26.dp)) {
+                drawCircle(Color.White, size.width / 2f, style = Stroke(2.2.dp.toPx()))
+                drawLabelIconStar(this)
+            }
+        }
+    }
+}
+
+private fun drawLabelIconStar(d: androidx.compose.ui.graphics.drawscope.DrawScope) {
+    with(d) {
+        val c = Offset(size.width / 2f, size.height / 2f)
+        val outer = size.width * 0.3f
+        val inner = outer * 0.45f
+        val p =
+            Path().apply {
+                for (i in 0 until 10) {
+                    val r = if (i % 2 == 0) outer else inner
+                    val a = Math.toRadians(-90.0 + i * 36.0)
+                    val x = c.x + (r * Math.cos(a)).toFloat()
+                    val y = c.y + (r * Math.sin(a)).toFloat()
+                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+                }
+                close()
+            }
+        drawPath(p, Color.White)
+    }
+}
+
+/** Win / draw / loss as a small coloured square with + = −. */
+@Composable
+private fun ResultIcon(result: Int?) {
+    if (result == null) {
+        Spacer(Modifier.size(22.dp))
+        return
+    }
+    val bg =
+        when (result) {
+            1 -> C.green
+            0 -> C.faint
+            else -> C.error
+        }
+    Canvas(Modifier.size(22.dp)) {
+        drawRoundRect(
+            bg,
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(4.dp.toPx()),
+        )
+        val w = 3.dp.toPx()
+        val m = size.width * 0.24f
+        val cy = size.height / 2f
+        if (result == 0) {
+            drawLine(Color.White, Offset(m, cy - w * 0.8f), Offset(size.width - m, cy - w * 0.8f), w * 0.8f)
+            drawLine(Color.White, Offset(m, cy + w * 0.8f), Offset(size.width - m, cy + w * 0.8f), w * 0.8f)
+        } else {
+            drawLine(Color.White, Offset(m, cy), Offset(size.width - m, cy), w)
+            if (result == 1) drawLine(Color.White, Offset(size.width / 2f, m), Offset(size.width / 2f, size.height - m), w)
+        }
+    }
+}
+
+/** Game type icons, drawn: bot, rapid clock, blitz bolt, bullet, daily sun, puzzles, file. */
+@Composable
+fun KindIcon(
+    kind: String,
+    size: Dp,
+) {
+    Canvas(Modifier.size(size)) {
+        val u = this.size.width / 24f
+
+        fun o(
+            x: Float,
+            y: Float,
+        ) = Offset(x * u, y * u)
+        val st = Stroke(2.2f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        when (kind) {
+            "computer" -> {
+                val c = Color(0xFF7FA6D9)
+                drawRoundRect(
+                    c,
+                    o(4f, 6f),
+                    androidx.compose.ui.geometry
+                        .Size(16f * u, 13f * u),
+                    androidx.compose.ui.geometry.CornerRadius(
+                        4f * u,
+                    ),
+                )
+                drawLine(c, o(12f, 6f), o(12f, 3f), 2f * u, StrokeCap.Round)
+                drawCircle(c, 1.6f * u, o(12f, 2.6f))
+                drawCircle(C.bg, 1.8f * u, o(9f, 12f))
+                drawCircle(C.bg, 1.8f * u, o(15f, 12f))
+                drawLine(C.bg, o(9.5f, 16f), o(14.5f, 16f), 1.6f * u, StrokeCap.Round)
+            }
+            "blitz" -> {
+                val p =
+                    Path().apply {
+                        moveTo(13.5f * u, 2f * u)
+                        lineTo(5f * u, 13.5f * u)
+                        lineTo(11f * u, 13.5f * u)
+                        lineTo(9.5f * u, 22f * u)
+                        lineTo(19f * u, 9.5f * u)
+                        lineTo(13f * u, 9.5f * u)
+                        close()
+                    }
+                drawPath(p, Color(0xFFF7C631))
+            }
+            "bullet" -> {
+                val c = Color(0xFFE3AA24)
+                val p =
+                    Path().apply {
+                        moveTo(7f * u, 21f * u)
+                        lineTo(7f * u, 10f * u)
+                        cubicTo(7f * u, 5f * u, 12f * u, 2f * u, 12f * u, 2f * u)
+                        cubicTo(12f * u, 2f * u, 17f * u, 5f * u, 17f * u, 10f * u)
+                        lineTo(17f * u, 21f * u)
+                        close()
+                    }
+                drawPath(p, c)
+                drawLine(C.bg, o(7f, 15.5f), o(17f, 15.5f), 1.4f * u)
+            }
+            "daily" -> {
+                val c = Color(0xFFF7C631)
+                drawCircle(c, 5f * u, o(12f, 12f))
+                for (i in 0 until 8) {
+                    val a = Math.toRadians(i * 45.0)
+                    val ca = Math.cos(a).toFloat()
+                    val sa = Math.sin(a).toFloat()
+                    drawLine(c, o(12f + ca * 7.5f, 12f + sa * 7.5f), o(12f + ca * 10f, 12f + sa * 10f), 2f * u, StrokeCap.Round)
+                }
+            }
+            "puzzles" -> {
+                val c = Color(0xFFF38A3D)
+                drawRoundRect(
+                    c,
+                    o(4f, 7f),
+                    androidx.compose.ui.geometry
+                        .Size(14f * u, 14f * u),
+                    androidx.compose.ui.geometry.CornerRadius(
+                        2f * u,
+                    ),
+                )
+                drawCircle(c, 3f * u, o(11f, 6f))
+                drawCircle(c, 3f * u, o(19f, 14f))
+            }
+            "pgn" -> {
+                drawRoundRect(
+                    C.dim,
+                    o(5f, 3f),
+                    androidx.compose.ui.geometry
+                        .Size(14f * u, 18f * u),
+                    androidx.compose.ui.geometry.CornerRadius(
+                        2f * u,
+                    ),
+                    style = st,
+                )
+                drawLine(C.dim, o(8.5f, 9f), o(15.5f, 9f), 1.8f * u, StrokeCap.Round)
+                drawLine(C.dim, o(8.5f, 13f), o(15.5f, 13f), 1.8f * u, StrokeCap.Round)
+                drawLine(C.dim, o(8.5f, 17f), o(13f, 17f), 1.8f * u, StrokeCap.Round)
+            }
+            else -> {
+                // Rapid (and live games of unknown speed): a stopwatch.
+                val c = C.green
+                drawCircle(c, 8f * u, o(12f, 13.5f), style = st)
+                drawLine(c, o(10f, 3f), o(14f, 3f), 2.2f * u, StrokeCap.Round)
+                drawLine(c, o(12f, 3f), o(12f, 5.5f), 2.2f * u, StrokeCap.Round)
+                drawLine(c, o(12f, 13.5f), o(12f, 9.5f), 2.2f * u, StrokeCap.Round)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GearIcon() {
+    Canvas(Modifier.size(24.dp)) {
+        val c = Offset(size.width / 2f, size.height / 2f)
+        val r = size.width * 0.3f
+        for (i in 0 until 8) {
+            val a = Math.toRadians(i * 45.0)
+            val ca = Math.cos(a).toFloat()
+            val sa = Math.sin(a).toFloat()
+            drawLine(
+                C.dim,
+                Offset(c.x + ca * r, c.y + sa * r),
+                Offset(c.x + ca * r * 1.45f, c.y + sa * r * 1.45f),
+                size.width * 0.14f,
+                StrokeCap.Round,
+            )
+        }
+        drawCircle(C.dim, r, c)
+        drawCircle(C.bar, r * 0.45f, c)
+    }
+}
+
+@Composable
+private fun SettingsDialog(onClose: () -> Unit) {
+    var depth by remember { mutableIntStateOf(AppModel.depth) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        containerColor = C.panel,
+        title = { Text("Settings", style = display(18)) },
+        text = {
+            Column {
                 Text("Analysis depth", style = body(13, FontWeight.Bold, C.faint))
                 Spacer(Modifier.height(6.dp))
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(C.panel)
+                        .background(C.bg)
                         .padding(4.dp),
                 ) {
-                    for ((d, name) in listOf(12 to "Fast", 16 to "Normal", 20 to "Deep")) {
+                    for ((d, n) in listOf(12 to "Fast", 16 to "Normal", 20 to "Deep")) {
                         val on = depth == d
                         Box(
                             Modifier
                                 .weight(1f)
                                 .height(38.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (on) C.panel2 else C.panel)
+                                .background(if (on) C.panel2 else C.bg)
                                 .clickable {
                                     depth = d
                                     AppModel.setDepth(d)
                                 },
                             contentAlignment = Alignment.Center,
-                        ) { Text(name, style = body(14, FontWeight.Bold, if (on) C.text else C.faint)) }
+                        ) { Text(n, style = body(14, FontWeight.Bold, if (on) C.text else C.faint)) }
                     }
                 }
+                Spacer(Modifier.height(18.dp))
+                Text("Chess.com account", style = body(13, FontWeight.Bold, C.faint))
+                Spacer(Modifier.height(6.dp))
+                Text(AppModel.username ?: "Not connected", style = body(16, FontWeight.Bold))
             }
-        }
-        if (AppModel.history.isNotEmpty()) {
-            item {
-                Text(
-                    "Your reviews",
-                    style = body(13, FontWeight.Bold, C.faint),
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                )
-            }
-        }
-        items(AppModel.history, key = { it.id }) { g -> HistoryRow(g, onLong = { deleting = g }) }
-        item { Spacer(Modifier.height(32.dp)) }
-    }
-    deleting?.let { g ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("Delete this review?") },
-            text = { Text("${g.white.name} vs ${g.black.name}") },
-            confirmButton = {
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Done") } },
+        dismissButton = {
+            if (AppModel.username != null) {
                 TextButton(onClick = {
-                    AppModel.delete(g.id)
-                    deleting = null
-                }) { Text("Delete") }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep") } },
-            containerColor = C.panel,
-        )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun HistoryRow(
-    g: SavedGame,
-    onLong: () -> Unit,
-) {
-    val mine = if (g.meWhite) g.accuracyWhite else g.accuracyBlack
-    val r = g.game.result
-    val won = (r == "1-0" && g.meWhite) || (r == "0-1" && !g.meWhite)
-    val lost = (r == "1-0" && !g.meWhite) || (r == "0-1" && g.meWhite)
-    Row(
-        Modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(C.panel)
-            .combinedClickable(onClick = { AppModel.open(g) }, onLongClick = onLong)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .size(10.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(
-                    if (won) {
-                        C.green
-                    } else if (lost) {
-                        C.error
-                    } else {
-                        C.faint
-                    },
-                ),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text("${g.white.name} vs ${g.black.name}", style = body(15, FontWeight.Bold), maxLines = 1)
-            Text(
-                "$r · ${DateFormat.getDateInstance(
-                    DateFormat.MEDIUM,
-                ).format(Date(g.savedAt))} · ${g.game.moves.size / 2 + g.game.moves.size % 2} moves",
-                style = body(12, color = C.faint),
-            )
-        }
-        Box(
-            Modifier.clip(RoundedCornerShape(6.dp)).background(C.bubble).padding(horizontal = 10.dp, vertical = 6.dp),
-        ) { Text("%.1f".format(mine), style = body(15, FontWeight.Bold, C.bubbleText)) }
-    }
+                    AppModel.disconnect()
+                    onClose()
+                }) { Text("Disconnect", color = C.error) }
+            }
+        },
+    )
 }
 
 @Composable
