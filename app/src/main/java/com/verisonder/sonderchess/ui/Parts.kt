@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,17 +43,16 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.verisonder.sonderchess.R
 import com.verisonder.sonderchess.core.Classifier
 import com.verisonder.sonderchess.core.EngineLine
 import com.verisonder.sonderchess.core.Label
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @Composable
@@ -68,34 +66,69 @@ fun LabelIcon(
     }
 }
 
+/** The Verisonder mark: a pixel V on a 7x7 grid (column, row). */
+private val markPixels = listOf(1 to 1, 5 to 1, 1 to 2, 5 to 2, 2 to 3, 4 to 3, 2 to 4, 4 to 4, 3 to 5)
+
+private val Night = Color(0xFF0B1633)
+private val Amber = Color(0xFFFFB74A)
+private val Pale = Color(0xFFFFE3A6)
+
 /**
- * The coach. A placeholder figure (a knight in a disc) until the real coach art is in.
+ * The coach: the Verisonder pixel V. When it has something new to say it hops, and its pixels
+ * light up pale one after another down the V, then settle back to amber.
  */
 @Composable
 fun Coach(
     size: Dp = 64.dp,
     reactTo: Any? = null,
 ) {
-    // A small hop each time the coach has something new to say.
     val hop = remember { Animatable(0f) }
+    val glow = remember { Animatable(0f) }
     LaunchedEffect(reactTo) {
         if (reactTo == null) return@LaunchedEffect
+        launch {
+            glow.snapTo(0f)
+            glow.animateTo(1f, tween(700, easing = FastOutSlowInEasing))
+        }
         hop.snapTo(0f)
         hop.animateTo(1f, tween(140, easing = FastOutSlowInEasing))
         hop.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 400f))
     }
-    Box(
+    Canvas(
         Modifier
             .size(size)
             .graphicsLayer {
                 translationY = -hop.value * size.toPx() * 0.08f
                 scaleX = 1f + hop.value * 0.04f
                 scaleY = 1f + hop.value * 0.04f
-            }.clip(CircleShape)
-            .background(C.panel2),
-        contentAlignment = Alignment.Center,
+            },
     ) {
-        Image(painterResource(R.drawable.piece_wn), null, Modifier.size(size * 0.78f))
+        val r = this.size.width * 0.22f
+        drawRoundRect(
+            Night,
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(r),
+        )
+        val cell = this.size.width / 7f
+        val g = glow.value
+        markPixels.forEachIndexed { i, (cx, cy) ->
+            // A pale wave runs down the V (top pixels first) as the coach starts talking.
+            val wave = (1f - kotlin.math.abs(g * 1.6f - i / (markPixels.size - 1f) - 0.3f) * 3f).coerceIn(0f, 1f)
+            val col =
+                androidx.compose.ui.graphics
+                    .lerp(Amber, Pale, if (g in 0.001f..0.999f) wave else 0f)
+            val o = Offset(cx * cell, cy * cell)
+            if (wave > 0.05f && g < 0.999f) {
+                drawCircle(Amber.copy(alpha = 0.22f * wave), cell * 0.8f, Offset(o.x + cell / 2f, o.y + cell / 2f))
+            }
+            drawRect(
+                col,
+                o,
+                androidx.compose.ui.geometry
+                    .Size(cell + 0.5f, cell + 0.5f),
+            )
+        }
     }
 }
 
