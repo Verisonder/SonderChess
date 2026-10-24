@@ -77,6 +77,26 @@ class Store(
         get() = prefs.getInt("depth", 16)
         set(v) = prefs.edit().putInt("depth", v).apply()
 
+    /** Your rating on the puzzles that come with the app, and how many you have done. */
+    var puzzleRating: Int
+        get() = prefs.getInt("puzzleRating", 1200)
+        set(v) = prefs.edit().putInt("puzzleRating", v).apply()
+    var puzzlesPlayed: Int
+        get() = prefs.getInt("puzzlesPlayed", 0)
+        set(v) = prefs.edit().putInt("puzzlesPlayed", v).apply()
+    var puzzleStreak: Int
+        get() = prefs.getInt("puzzleStreak", 0)
+        set(v) = prefs.edit().putInt("puzzleStreak", v).apply()
+
+    private val seenFile = File(context.filesDir, "puzzles_seen.txt")
+
+    /** Puzzles already played, so they don't come back. */
+    fun puzzlesSeen(): Set<String> = runCatching { seenFile.readLines().toHashSet() }.getOrDefault(hashSetOf())
+
+    fun markPuzzleSeen(id: String) {
+        runCatching { seenFile.appendText(id + "\n") }
+    }
+
     fun list(): List<SavedGame> =
         dir
             .listFiles { f -> f.name.endsWith(".json") }

@@ -33,7 +33,7 @@ Or just open it: give it your Chess.com username once and it shows your profile,
 | **Your profile** | Ratings, followers, joined date and your full game history from Chess.com's public data, with your own and your opponents' pictures. Works from a username or a shared profile link, and knows which player you are. |
 | **Stats** | Rating graphs, win, loss and draw records per time control over 7 days to all time, puzzle ratings, and the brilliant moves from your reviews. |
 | **Play** | A game against Stockfish at seven strengths, from beginner to full strength, reviewed when it ends. Or the custom board: move both sides, set up any position, and switch the engine on for its evaluation and best lines. |
-| **Puzzles** | Chess.com's daily puzzle and random ones, with hints and the solution. |
+| **Puzzles** | Over 46,000 puzzles that work offline, picked at your level, with your own puzzle rating and streak. Plus Chess.com's daily puzzle. Hints, the solution and retry on both. |
 | **Make it yours** | 20 boards, 7 piece sets, backgrounds or your own photo, 5 sound sets (with a sound of its own for brilliant moves), coordinates, highlights and animation speed. |
 | **Works offline** | Reviews, your profile and your games stay on the phone and update when you're back online. Analysis never needs the internet. |
 
@@ -70,6 +70,7 @@ gradle testDebugUnitTest assembleDebug
   Chessnut by Alexis Luengas (Apache 2.0), Mono by Maxime Chupin (GPL-3.0+), Spatial by Maurizio Monge (MIT),
   Warm is RhosGFX in its own colours (CC0). All via [lichess-org/lila](https://github.com/lichess-org/lila/blob/master/COPYING.md).
 - Opening names from [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0).
+- Puzzles from the [Lichess puzzle database](https://database.lichess.org/#puzzles) (CC0): 46,345 of the best-rated, about 2,000 per 100 rating points.
 - Fonts: Montserrat and Roboto (SIL Open Font License).
 - Badge symbols from Google's Material icons (Apache 2.0).
 

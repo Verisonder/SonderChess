@@ -86,4 +86,30 @@ class CoreTest {
         assertEquals(Label.Brilliant, r.moves[52].label)
         assertEquals("C00", r.eco)
     }
+
+    @Test
+    fun puzzlesParsePickAndScore() {
+        val book =
+            com.verisonder.sonderchess.core.PuzzleBook.parse(
+                "a\t8/p3kppp/4p3/8/P1P5/1P1r4/5PPP/1R4K1 w - - 4 27\tb1b2 d3d1\t400\tbackRankMate mateIn1\n" +
+                    "b\tR7/5kpp/1P3p2/1r1pp3/8/4PN2/5PPP/6K1 w - - 2 28\ta8a6 b5b1 f3e1 b1e1\t1500\tmateIn2\n",
+            )
+        assertEquals(2, book.puzzles.size)
+        assertEquals("b", book.pick(1450, emptySet())?.id)
+        assertEquals("a", book.pick(1450, setOf("b"))?.id)
+        assertEquals(
+            "Mate in 2",
+            com.verisonder.sonderchess.core.PuzzleBook
+                .title(book.puzzles[1].themes),
+        )
+        // Solving one rated above you raises your rating; failing one below lowers it.
+        assertTrue(
+            com.verisonder.sonderchess.core.PuzzleBook
+                .newRating(1200, 1500, true, 30) > 1200,
+        )
+        assertTrue(
+            com.verisonder.sonderchess.core.PuzzleBook
+                .newRating(1200, 900, false, 30) < 1200,
+        )
+    }
 }

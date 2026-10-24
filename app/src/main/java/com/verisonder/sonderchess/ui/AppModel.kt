@@ -2,6 +2,7 @@ package com.verisonder.sonderchess.ui
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.verisonder.sonderchess.core.Classifier
@@ -114,6 +115,48 @@ object AppModel {
 
     /** The bot strength picked last time. */
     var botLevel = 2
+
+    /** The puzzles that come with the app (Lichess, CC0), read once. */
+    private var puzzleBook: com.verisonder.sonderchess.core.PuzzleBook? = null
+    private var puzzlesSeen: MutableSet<String>? = null
+
+    var puzzleRating by mutableIntStateOf(1200)
+        private set
+    var puzzleStreak by mutableIntStateOf(0)
+        private set
+
+    /** A puzzle near your rating that you haven't played. */
+    suspend fun nextPuzzle(): com.verisonder.sonderchess.core.OfflinePuzzle? =
+        withContext(Dispatchers.IO) {
+            val book =
+                puzzleBook ?: com.verisonder.sonderchess.core.PuzzleBook
+                    .parse(
+                        java.util.zip
+                            .GZIPInputStream(app.assets.open("puzzles.tsv.gz"))
+                            .bufferedReader()
+                            .use { it.readText() },
+                    ).also { puzzleBook = it }
+            val seen = puzzlesSeen ?: store.puzzlesSeen().toMutableSet().also { puzzlesSeen = it }
+            book.pick(puzzleRating, seen)
+        }
+
+    /** Scores a puzzle once: [clean] is solved with no wrong move, hint or shown solution. */
+    fun recordPuzzle(
+        p: com.verisonder.sonderchess.core.OfflinePuzzle,
+        clean: Boolean,
+    ): Int {
+        val before = puzzleRating
+        puzzleRating =
+            com.verisonder.sonderchess.core.PuzzleBook
+                .newRating(before, p.rating, clean, store.puzzlesPlayed)
+        puzzleStreak = if (clean) puzzleStreak + 1 else 0
+        store.puzzleRating = puzzleRating
+        store.puzzleStreak = puzzleStreak
+        store.puzzlesPlayed = store.puzzlesPlayed + 1
+        puzzlesSeen?.add(p.id)
+        scope.launch(Dispatchers.IO) { store.markPuzzleSeen(p.id) }
+        return puzzleRating - before
+    }
 
     var accountError by mutableStateOf<String?>(null)
         private set
@@ -283,6 +326,8 @@ object AppModel {
         highlightLast = store.highlightLast
         showArrows = store.showArrows
         animation = store.animation
+        puzzleRating = store.puzzleRating
+        puzzleStreak = store.puzzleStreak
         Sounds.init(app)
         ChessComApi.cacheDir = java.io.File(app.filesDir, "chesscom").apply { mkdirs() }
         refresh()

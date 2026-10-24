@@ -77,6 +77,7 @@ fun InteractiveBoard(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     marks: Map<Int, Color> = emptyMap(),
+    label: com.verisonder.sonderchess.core.Label? = null,
     onMove: (Move) -> Unit,
 ) {
     val fen = position.fen()
@@ -84,7 +85,7 @@ fun InteractiveBoard(
     var promo by remember(fen) { mutableStateOf<List<Move>?>(null) }
     val legal = remember(fen) { position.legalMoves() }
     Box(modifier) {
-        ChessBoard(position, last = last, label = null, arrows = arrows, flipped = flipped, modifier = Modifier.fillMaxSize())
+        ChessBoard(position, last = last, label = label, arrows = arrows, flipped = flipped, modifier = Modifier.fillMaxSize())
         Canvas(
             Modifier.fillMaxSize().pointerInput(fen, flipped, enabled) {
                 detectTapGestures { off ->
@@ -537,7 +538,7 @@ internal fun setupProblem(
 
 /** A bottom-bar button with a line icon drawn in the same style as the review bar. */
 @Composable
-private fun ToolButton(
+internal fun ToolButton(
     text: String,
     icon: String,
     on: Boolean = false,
@@ -604,6 +605,25 @@ private fun ToolButton(
                     drawLine(col, o(15.3f, 15.3f), o(20f, 20f), st.width, StrokeCap.Round)
                 }
                 "back" -> line(15f to 5f, 8f to 12f, 15f to 19f)
+                "hint" -> {
+                    // A light bulb.
+                    drawCircle(col, 6f * u, o(12f, 10f), style = st)
+                    line(9.5f to 16f, 9.5f to 19f, 14.5f to 19f, 14.5f to 16f)
+                    line(10.5f to 21.5f, 13.5f to 21.5f)
+                }
+                "solution" -> {
+                    // An eye.
+                    val p = Path()
+                    p.moveTo(2.5f * u, 12f * u)
+                    p.quadraticTo(12f * u, 3f * u, 21.5f * u, 12f * u)
+                    p.quadraticTo(12f * u, 21f * u, 2.5f * u, 12f * u)
+                    drawPath(p, col, style = st)
+                    drawCircle(col, 3f * u, o(12f, 12f), style = st)
+                }
+                "retry" -> {
+                    drawArc(col, -60f, 300f, false, o(4.5f, 4.5f), Size(15f * u, 15f * u), style = st)
+                    line(19.5f to 3.5f, 19.5f to 8.6f, 14.4f to 8.6f)
+                }
                 else -> line(9f to 5f, 16f to 12f, 9f to 19f)
             }
         }

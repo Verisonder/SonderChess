@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -206,6 +207,7 @@ private fun Tab(
     onClick: () -> Unit,
 ) {
     val col by animateColorAsState(if (on) C.text else Color(0xFF8B8987), tween(160), label = "tab")
+    val pawn = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.PAWN]
     // The icon gives a little hop when its tab is picked.
     val hop =
         remember {
@@ -235,40 +237,44 @@ private fun Tab(
             val u = size.width / 24f
             when (icon) {
                 "home" -> {
-                    // A pawn.
-                    drawCircle(col, 3.6f * u, Offset(12f * u, 6.2f * u))
-                    val p =
-                        Path().apply {
-                            moveTo(9.2f * u, 10f * u)
-                            lineTo(14.8f * u, 10f * u)
-                            lineTo(16.6f * u, 17f * u)
-                            lineTo(7.4f * u, 17f * u)
-                            close()
-                        }
-                    drawPath(p, col)
-                    drawRoundRect(
-                        col,
-                        Offset(5.5f * u, 17.5f * u),
-                        Size(13f * u, 3.6f * u),
-                        androidx.compose.ui.geometry
-                            .CornerRadius(1.2f * u),
-                    )
+                    // The pawn from your piece set, in the tab's colour.
+                    pawn?.run {
+                        draw(
+                            size,
+                            colorFilter =
+                                androidx.compose.ui.graphics.ColorFilter
+                                    .tint(col),
+                        )
+                    }
                 }
                 "puzzles" -> {
-                    // A jigsaw piece.
-                    val p =
-                        Path().apply {
-                            moveTo(4f * u, 8f * u)
-                            lineTo(9f * u, 8f * u)
-                            cubicTo(8f * u, 3f * u, 15f * u, 3f * u, 14f * u, 8f * u)
-                            lineTo(19f * u, 8f * u)
-                            lineTo(19f * u, 12f * u)
-                            cubicTo(23.5f * u, 11f * u, 23.5f * u, 18f * u, 19f * u, 17f * u)
-                            lineTo(19f * u, 21f * u)
-                            lineTo(4f * u, 21f * u)
-                            close()
-                        }
-                    drawPath(p, col)
+                    // A jigsaw piece, tilted: a rounded square with a knob on top and one on the right.
+                    rotate(-14f) {
+                        val p =
+                            Path().apply {
+                                addRoundRect(
+                                    androidx.compose.ui.geometry.RoundRect(
+                                        4f * u,
+                                        8f * u,
+                                        18f * u,
+                                        22f * u,
+                                        androidx.compose.ui.geometry
+                                            .CornerRadius(2.2f * u),
+                                    ),
+                                )
+                                addOval(
+                                    androidx.compose.ui.geometry
+                                        .Rect(Offset(11f * u, 5.6f * u), 3.3f * u),
+                                )
+                                addOval(
+                                    androidx.compose.ui.geometry
+                                        .Rect(Offset(20.4f * u, 15f * u), 3.3f * u),
+                                )
+                            }
+                        drawPath(p, col)
+                        // The socket on the left edge.
+                        drawCircle(C.bar, 2.6f * u, Offset(4f * u, 15f * u))
+                    }
                 }
                 else -> {
                     val st = Stroke(width = 2.6f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
