@@ -37,8 +37,11 @@ sealed interface Screen {
 
     data object More : Screen
 
-    /** The free analysis board (the Play button). */
+    /** The free analysis board: play both sides, set up positions, ask Stockfish. */
     data object Play : Screen
+
+    /** A game against Stockfish at a strength you pick. */
+    data object Bot : Screen
 
     data object Theme : Screen
 
@@ -107,6 +110,9 @@ object AppModel {
 
     /** Whether Stockfish was on last time the analysis board was open. */
     var playEngine = false
+
+    /** The bot strength picked last time. */
+    var botLevel = 2
         private set
     var accountError by mutableStateOf<String?>(null)
         private set
@@ -382,6 +388,25 @@ object AppModel {
         username = null
         profile = null
         archive = emptyList()
+    }
+
+    /** Reviews a game you just played on the phone (against a bot); it goes into your history. */
+    fun reviewPlayed(
+        game: Game,
+        meWhite: Boolean,
+        bot: String,
+    ) {
+        val me = Player(username ?: "You", profile?.rapid, false, profile?.avatar)
+        val them = Player(bot, null, true, null)
+        val f =
+            FetchedGame(
+                game,
+                if (meWhite) me else them,
+                if (meWhite) them else me,
+                "local" + System.currentTimeMillis(),
+                "computer",
+            )
+        start { analyse(f, meWhite) }
     }
 
     /** Reviews a game from your archive (opens it straight away if already reviewed). */

@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
                         when (st) {
                             Screen.Home, Screen.Puzzles, Screen.More -> TabScaffold(st)
                             Screen.Play -> PlayScreen()
+                            Screen.Bot -> BotScreen()
                             Screen.AllGames -> AllGamesScreen()
                             Screen.Theme -> ThemeScreen()
                             is Screen.Stats -> StatsScreen(st.open)

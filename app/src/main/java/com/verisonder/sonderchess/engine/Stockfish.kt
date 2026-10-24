@@ -93,6 +93,29 @@ class Stockfish private constructor(
         return PositionEval(lines.filterNotNull(), reached)
     }
 
+    /**
+     * A move for a bot: [skill] 0..20 (Stockfish's Skill Level) or, when [elo] is set, a
+     * strength limited to that rating; thinks for [movetimeMs]. Blocking.
+     */
+    fun bestMove(
+        fen: String,
+        skill: Int,
+        elo: Int?,
+        movetimeMs: Int,
+    ): String? {
+        send("setoption name MultiPV value 1")
+        send("setoption name Skill Level value $skill")
+        if (elo != null) {
+            send("setoption name UCI_LimitStrength value true")
+            send("setoption name UCI_Elo value $elo")
+        } else {
+            send("setoption name UCI_LimitStrength value false")
+        }
+        send("position fen $fen")
+        send("go movetime $movetimeMs")
+        return readUntil("bestmove").split(' ').getOrNull(1)?.takeIf { it != "(none)" }
+    }
+
     override fun close() {
         runCatching { send("quit") }
         runCatching { process.waitFor() }
