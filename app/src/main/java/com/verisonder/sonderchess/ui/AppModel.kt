@@ -110,6 +110,63 @@ object AppModel {
         store.pieceSet = p.id
     }
 
+    /** Look and feel options (Theme page). */
+    var soundSet by mutableStateOf("default")
+        private set
+    var background by mutableStateOf("default")
+        private set
+    var coordinates by mutableStateOf(true)
+        private set
+    var highlightLast by mutableStateOf(true)
+        private set
+    var showArrows by mutableStateOf(true)
+        private set
+    var animation by mutableStateOf(2)
+        private set
+
+    /** Bumped when a new custom background picture is saved, so it reloads. */
+    var backgroundVersion by mutableStateOf(0)
+        private set
+
+    fun setSoundSet(id: String) {
+        soundSet = id
+        store.soundSet = id
+    }
+
+    fun setBackground(id: String) {
+        background = id
+        store.background = id
+        if (id == "custom") backgroundVersion++
+    }
+
+    fun setCoordinates(v: Boolean) {
+        coordinates = v
+        store.coordinates = v
+    }
+
+    fun setHighlightLast(v: Boolean) {
+        highlightLast = v
+        store.highlightLast = v
+    }
+
+    fun setShowArrows(v: Boolean) {
+        showArrows = v
+        store.showArrows = v
+    }
+
+    fun setAnimation(v: Int) {
+        animation = v
+        store.animation = v
+    }
+
+    /** Copies a picked picture (scaled down) to be the review background. */
+    fun saveBackground(uri: android.net.Uri) {
+        scope.launch(Dispatchers.IO) {
+            val ok = Backgrounds.save(app, uri)
+            if (ok) withContext(Dispatchers.Main) { setBackground("custom") }
+        }
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private var book: OpeningBook? = null
@@ -123,6 +180,13 @@ object AppModel {
         username = store.username
         board = Themes.board(store.boardTheme)
         pieces = Themes.pieceSet(store.pieceSet)
+        soundSet = store.soundSet
+        background = store.background
+        coordinates = store.coordinates
+        highlightLast = store.highlightLast
+        showArrows = store.showArrows
+        animation = store.animation
+        Sounds.init(app)
         refresh()
         refreshAccount()
     }

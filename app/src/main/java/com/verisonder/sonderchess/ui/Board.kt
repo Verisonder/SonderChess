@@ -128,13 +128,19 @@ fun ChessBoard(
     LaunchedEffect(key) {
         val from = shown[0]
         shown[0] = position
-        if (animate && from.fen() != key) {
+        val speed =
+            when (AppModel.animation) {
+                1 -> 1.6f
+                3 -> 0.6f
+                else -> 1f
+            }
+        if (animate && AppModel.animation != 0 && from.fen() != key) {
             anim = diff(from, position)
             pop.snapTo(0f)
             fade.snapTo(0f)
             glide.snapTo(0f)
             val far = anim!!.slides.maxOfOrNull { abs(fileOf(it.to) - fileOf(it.from)) + abs(rankOf(it.to) - rankOf(it.from)) } ?: 1
-            glide.animateTo(1f, tween((170 + far * 12).coerceAtMost(280), easing = FastOutSlowInEasing))
+            glide.animateTo(1f, tween(((170 + far * 12).coerceAtMost(280) * speed).toInt(), easing = FastOutSlowInEasing))
             anim = null
             launch { fade.animateTo(1f, tween(220)) }
             pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 520f))
@@ -159,12 +165,12 @@ fun ChessBoard(
             val light = (fileOf(sq) + rankOf(sq)) % 2 == 1
             drawRect(if (light) theme.light else theme.dark, origin(sq), Size(s, s))
         }
-        if (last != null) {
+        if (last != null && AppModel.highlightLast) {
             val tint = (label?.colour() ?: Color(0xFFF7EC74)).copy(alpha = 0.5f * (0.35f + 0.65f * glide.value))
             drawRect(tint, origin(last.from), Size(s, s))
             drawRect(tint, origin(last.to), Size(s, s))
         }
-        drawCoordinates(tm, s, flipped, theme)
+        if (AppModel.coordinates) drawCoordinates(tm, s, flipped, theme)
         val a = anim
         val t = glide.value
         val moving =

@@ -45,6 +45,33 @@ class Store(
         get() = prefs.getString("pieces", null)
         set(v) = prefs.edit().putString("pieces", v).apply()
 
+    /** Sound set id, or "off". */
+    var soundSet: String
+        get() = prefs.getString("sound", "default") ?: "default"
+        set(v) = prefs.edit().putString("sound", v).apply()
+
+    /** Review background id ("custom" = the picture in files/background.jpg). */
+    var background: String
+        get() = prefs.getString("background", "default") ?: "default"
+        set(v) = prefs.edit().putString("background", v).apply()
+
+    var coordinates: Boolean
+        get() = prefs.getBoolean("coords", true)
+        set(v) = prefs.edit().putBoolean("coords", v).apply()
+
+    var highlightLast: Boolean
+        get() = prefs.getBoolean("highlight", true)
+        set(v) = prefs.edit().putBoolean("highlight", v).apply()
+
+    var showArrows: Boolean
+        get() = prefs.getBoolean("arrows", true)
+        set(v) = prefs.edit().putBoolean("arrows", v).apply()
+
+    /** Piece animation: 0 off, 1 slow, 2 normal, 3 fast. */
+    var animation: Int
+        get() = prefs.getInt("anim", 2)
+        set(v) = prefs.edit().putInt("anim", v).apply()
+
     /** Engine depth per position. */
     var depth: Int
         get() = prefs.getInt("depth", 16)

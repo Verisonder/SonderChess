@@ -69,7 +69,7 @@ fun ReviewScreen(
     val positions = remember(o) { r.game.positions() }
     var ply by rememberSaveable(o.saved.id) { mutableStateOf(startPly) }
     var showBest by remember { mutableStateOf(false) }
-    var arrows by rememberSaveable { mutableStateOf(true) }
+    var arrows by rememberSaveable { mutableStateOf(AppModel.showArrows) }
     var flipped by rememberSaveable(o.saved.id) { mutableStateOf(!o.saved.meWhite) }
     val context = LocalContext.current
     val last = r.game.moves.size - 1
@@ -121,83 +121,101 @@ fun ReviewScreen(
         }
     val evalNow: EngineLine = r.evals[ply + 1]
 
-    Column(Modifier.fillMaxSize()) {
-        TopBar("Game Review", onBack = { AppModel.screen = Screen.Summary(o.saved.id) }) {
-            Box(Modifier.size(48.dp).clickable { flipped = !flipped }, contentAlignment = Alignment.Center) {
-                FlipIcon()
-            }
+    // A sound for every step, not for the first screen.
+    val firstShow = remember { booleanArrayOf(true) }
+    LaunchedEffect(ply, showingBest) {
+        if (firstShow[0]) {
+            firstShow[0] = false
+            Sounds.preload(AppModel.soundSet)
+            return@LaunchedEffect
         }
-        // Coach and speech bubble.
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 112.dp).padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Coach(56.dp, reactTo = ply)
-            Spacer(Modifier.width(4.dp))
-            Bubble(Modifier.weight(1f)) {
-                AnimatedContent(
-                    targetState = ply to showingBest,
-                    transitionSpec = {
-                        (fadeIn(tween(180, delayMillis = 60)) + scaleIn(tween(220, delayMillis = 60), initialScale = 0.94f))
-                            .togetherWith(fadeOut(tween(90)))
-                            .using(SizeTransform(clip = false))
-                    },
-                    label = "coach",
-                ) { (p, best) -> BubbleBody(o, positions, p, best) }
+        if (ply < 0) return@LaunchedEffect
+        val m = if (showingBest) bestMove else r.game.moves[ply]
+        if (m != null) Sounds.play(Sounds.eventFor(positions[ply], m))
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        ReviewBackground()
+        Column(Modifier.fillMaxSize()) {
+            TopBar("Game Review", onBack = { AppModel.screen = Screen.Summary(o.saved.id) }) {
+                Box(Modifier.size(48.dp).clickable { flipped = !flipped }, contentAlignment = Alignment.Center) {
+                    FlipIcon()
+                }
             }
-        }
-        // Board with the eval bar.
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val boardSize = maxWidth - 18.dp
-            Row(Modifier.height(boardSize)) {
-                EvalBar(evalNow, flipped, Modifier.fillMaxHeight())
-                ChessBoard(
-                    position = boardPos,
-                    last = boardMove,
-                    label = boardLabel,
-                    arrows = boardArrows,
-                    flipped = flipped,
-                    modifier =
-                        Modifier.size(boardSize).pointerInput(ply) {
-                            var dx = 0f
-                            detectHorizontalDragGestures(
-                                onDragStart = { dx = 0f },
-                                onDragEnd = {
-                                    if (dx < -60f) {
-                                        go(ply + 1)
-                                    } else if (dx > 60f) {
-                                        go(ply - 1)
-                                    }
-                                },
-                            ) { _, d -> dx += d }
-                        },
-                )
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        MoveStrip(o, ply, onPick = { go(it) })
-        Spacer(Modifier.weight(1f))
-        // Bottom bar.
-        Row(
-            Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BarButton("Show", on = arrows, enabled = true) { arrows = !arrows }
-            BarButton(
-                "Best",
-                on = showingBest,
-                enabled = mr != null && bestMove != null && mr.label != Label.Best && mr.label != Label.Book,
+            // Coach and speech bubble.
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 112.dp).padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                showBest = !showBest
+                Coach(56.dp, reactTo = ply)
+                Spacer(Modifier.width(4.dp))
+                Bubble(Modifier.weight(1f)) {
+                    AnimatedContent(
+                        targetState = ply to showingBest,
+                        transitionSpec = {
+                            (fadeIn(tween(180, delayMillis = 60)) + scaleIn(tween(220, delayMillis = 60), initialScale = 0.94f))
+                                .togetherWith(fadeOut(tween(90)))
+                                .using(SizeTransform(clip = false))
+                        },
+                        label = "coach",
+                    ) { (p, best) -> BubbleBody(o, positions, p, best) }
+                }
             }
-            BarButton("Share", on = false, enabled = true) {
-                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.game.toPgn())
-                context.startActivity(Intent.createChooser(send, "Share PGN"))
+            // Board with the eval bar.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val boardSize = maxWidth - 18.dp
+                Row(Modifier.height(boardSize)) {
+                    EvalBar(evalNow, flipped, Modifier.fillMaxHeight())
+                    ChessBoard(
+                        position = boardPos,
+                        last = boardMove,
+                        label = boardLabel,
+                        arrows = boardArrows,
+                        flipped = flipped,
+                        modifier =
+                            Modifier.size(boardSize).pointerInput(ply) {
+                                var dx = 0f
+                                detectHorizontalDragGestures(
+                                    onDragStart = { dx = 0f },
+                                    onDragEnd = {
+                                        if (dx < -60f) {
+                                            go(ply + 1)
+                                        } else if (dx > 60f) {
+                                            go(ply - 1)
+                                        }
+                                    },
+                                ) { _, d -> dx += d }
+                            },
+                    )
+                }
             }
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.weight(1f)) {
-                GreenButton(if (ply >= last) "Done" else "Next", height = 52.dp) {
-                    if (ply >= last) AppModel.screen = Screen.Summary(o.saved.id) else go(ply + 1)
+            Spacer(Modifier.height(10.dp))
+            Box(Modifier.background(if (backgroundIsDark) Color.Transparent else C.bg.copy(alpha = 0.88f))) {
+                MoveStrip(o, ply, onPick = { go(it) })
+            }
+            Spacer(Modifier.weight(1f))
+            // Bottom bar.
+            Row(
+                Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BarButton("Show", on = arrows, enabled = true) { arrows = !arrows }
+                BarButton(
+                    "Best",
+                    on = showingBest,
+                    enabled = mr != null && bestMove != null && mr.label != Label.Best && mr.label != Label.Book,
+                ) {
+                    showBest = !showBest
+                }
+                BarButton("Share", on = false, enabled = true) {
+                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.game.toPgn())
+                    context.startActivity(Intent.createChooser(send, "Share PGN"))
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.weight(1f)) {
+                    GreenButton(if (ply >= last) "Done" else "Next", height = 52.dp) {
+                        if (ply >= last) AppModel.screen = Screen.Summary(o.saved.id) else go(ply + 1)
+                    }
                 }
             }
         }
