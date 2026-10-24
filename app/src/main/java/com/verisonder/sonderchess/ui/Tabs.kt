@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.BuildConfig
 
 /** The three pages with the bar along the bottom. */
-fun isTab(s: Screen) = s == Screen.Home || s == Screen.Puzzles || s == Screen.More
+fun isTab(s: Screen) = s == Screen.Home || s == Screen.Puzzles || s == Screen.Paste || s == Screen.More
 
 /**
  * Home, Puzzles and More, with the tab bar under them and, on Home, the big Play button
@@ -65,6 +65,7 @@ fun TabScaffold(current: Screen) {
             Crossfade(current, animationSpec = tween(180), label = "tab") { tab ->
                 when (tab) {
                     Screen.Puzzles -> PuzzlesScreen()
+                    Screen.Paste -> PasteScreen()
                     Screen.More -> MoreScreen()
                     else -> HomeScreen()
                 }
@@ -170,7 +171,8 @@ private fun TabBar(current: Screen) {
     val index =
         when (current) {
             Screen.Puzzles -> 1
-            Screen.More -> 2
+            Screen.Paste -> 2
+            Screen.More -> 3
             else -> 0
         }
     // A short green line glides over to the tab you pick.
@@ -181,7 +183,7 @@ private fun TabBar(current: Screen) {
         label = "tabline",
     )
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().background(C.bar)) {
-        val w = maxWidth / 3
+        val w = maxWidth / 4
         Box(
             Modifier
                 .padding(start = w * at + w * 0.3f)
@@ -193,7 +195,8 @@ private fun TabBar(current: Screen) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {
             Tab("Home", "home", index == 0, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
             Tab("Puzzles", "puzzles", index == 1, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
-            Tab("More", "more", index == 2, Modifier.weight(1f)) { AppModel.screen = Screen.More }
+            Tab("Review", "paste", index == 2, Modifier.weight(1f)) { AppModel.screen = Screen.Paste }
+            Tab("More", "more", index == 3, Modifier.weight(1f)) { AppModel.screen = Screen.More }
         }
     }
 }
@@ -275,6 +278,31 @@ private fun Tab(
                         // The socket on the left edge.
                         drawCircle(C.bar, 2.6f * u, Offset(4f * u, 15f * u))
                     }
+                }
+                "paste" -> {
+                    // A clipboard, filled, with a lighter sheet showing.
+                    drawRoundRect(
+                        col,
+                        Offset(4.5f * u, 4f * u),
+                        Size(15f * u, 18f * u),
+                        androidx.compose.ui.geometry
+                            .CornerRadius(2.5f * u),
+                    )
+                    drawRoundRect(
+                        C.bar,
+                        Offset(7f * u, 8f * u),
+                        Size(10f * u, 11.5f * u),
+                        androidx.compose.ui.geometry
+                            .CornerRadius(1.2f * u),
+                    )
+                    drawRoundRect(
+                        col,
+                        Offset(8.5f * u, 2f * u),
+                        Size(7f * u, 4.5f * u),
+                        androidx.compose.ui.geometry
+                            .CornerRadius(1.5f * u),
+                    )
+                    for (y in listOf(11.5f, 14.5f)) drawLine(col, Offset(9f * u, y * u), Offset(15f * u, y * u), 1.6f * u, StrokeCap.Round)
                 }
                 else -> {
                     val st = Stroke(width = 2.6f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)

@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
                     ) { st ->
                         val o = AppModel.opened
                         when (st) {
-                            Screen.Home, Screen.Puzzles, Screen.More -> TabScaffold(st)
+                            Screen.Home, Screen.Puzzles, Screen.Paste, Screen.More -> TabScaffold(st)
                             Screen.Play -> PlayScreen()
                             Screen.Bot -> BotScreen()
                             Screen.AllGames -> AllGamesScreen()
@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
 
     private fun depthOf(s: Screen) =
         when (s) {
-            Screen.Home, Screen.Puzzles, Screen.More -> 0
+            Screen.Home, Screen.Puzzles, Screen.Paste, Screen.More -> 0
             is Screen.Game -> 2
             is Screen.Summary -> 3
             is Screen.Board -> 4

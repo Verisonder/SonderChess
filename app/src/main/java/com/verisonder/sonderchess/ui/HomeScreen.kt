@@ -237,11 +237,9 @@ fun HomeScreen() {
     deleting?.let { g -> DeleteDialog(g) { deleting = null } }
 }
 
-/** Paste, always reachable; the name fades in once the banner has scrolled away. */
+/** Your name, fading in once the banner has scrolled away. */
 @Composable
 private fun HomeTopBar(solid: Float) {
-    var pasting by remember { mutableStateOf(false) }
-    if (pasting) PasteDialog { pasting = false }
     Row(
         Modifier.fillMaxWidth().background(C.bar.copy(alpha = solid)).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -251,19 +249,16 @@ private fun HomeTopBar(solid: Float) {
             style = display(18),
             modifier = Modifier.weight(1f).padding(start = 8.dp).graphicsLayer { alpha = solid },
         )
-        Box(
-            Modifier.size(44.dp).clip(CircleShape).clickable { pasting = true },
-            contentAlignment = Alignment.Center,
-        ) { PasteIcon() }
+        Spacer(Modifier.height(44.dp))
     }
 }
 
 /**
- * Asks before touching the clipboard: type or paste a game link, profile link or PGN. The
- * clipboard is only read when you tap "Paste", and Review only lights up for something it can open.
+ * The Review tab: type or paste a game link, profile link or PGN. The clipboard is only read
+ * when you tap Paste, and Review only lights up for something it can open.
  */
 @Composable
-private fun PasteDialog(onClose: () -> Unit) {
+fun PasteScreen() {
     val clipboard = LocalClipboardManager.current
     var text by remember { mutableStateOf("") }
     val usable =
@@ -276,54 +271,68 @@ private fun PasteDialog(onClose: () -> Unit) {
                     com.verisonder.sonderchess.core.Pgn
                         .looksLikePgn(text)
             )
-    AlertDialog(
-        onDismissRequest = onClose,
-        containerColor = C.panel,
-        title = { Text("Review a game", style = display(18)) },
-        text = {
-            Column {
-                Text("A Chess.com game link, a profile link or a PGN.", style = body(14, color = C.dim))
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    placeholder = { Text("chess.com/game/…") },
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = C.green,
-                            unfocusedBorderColor = C.line,
-                            cursorColor = C.green,
-                        ),
-                )
-                if (text.isNotBlank() && !usable) {
-                    Spacer(Modifier.height(6.dp))
-                    Text("That isn't a Chess.com game link, profile link or PGN.", style = body(13, color = C.error))
+    Column(Modifier.fillMaxSize()) {
+        TopBar("Review a Game", onBack = null)
+        Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+            Row(Modifier.appear(0, "paste-head"), verticalAlignment = Alignment.CenterVertically) {
+                Coach(56.dp)
+                Spacer(Modifier.width(4.dp))
+                Bubble(Modifier.weight(1f)) {
+                    Text(
+                        "Share a game from Chess.com, or paste a game link, a profile link or a PGN here.",
+                        style = body(15, FontWeight.Medium, C.bubbleText),
+                    )
                 }
-                Spacer(Modifier.height(10.dp))
+            }
+            Spacer(Modifier.height(18.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("chess.com/game/…") },
+                minLines = 3,
+                maxLines = 8,
+                modifier = Modifier.fillMaxWidth().appear(1, "paste-field"),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = C.green,
+                        unfocusedBorderColor = C.line,
+                        cursorColor = C.green,
+                    ),
+            )
+            androidx.compose.animation.AnimatedVisibility(text.isNotBlank() && !usable) {
+                Text(
+                    "That isn't a Chess.com game link, profile link or PGN.",
+                    style = body(13, color = C.error),
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.appear(2, "paste-buttons"), verticalAlignment = Alignment.CenterVertically) {
                 Row(
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(C.bg)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(C.panel2)
                         .clickable { text = clipboard.getText()?.text.orEmpty() }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     PasteIcon()
                     Spacer(Modifier.width(8.dp))
-                    Text("Paste", style = body(14, FontWeight.Bold))
+                    Text("Paste", style = body(16, FontWeight.Bold))
+                }
+                if (text.isNotEmpty()) {
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = { text = "" }) { Text("Clear", style = body(15, FontWeight.Bold, C.dim)) }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(enabled = usable, onClick = {
-                onClose()
-                AppModel.handleText(text)
-            }) { Text("Review", color = if (usable) C.green else C.faint) }
-        },
-        dismissButton = { TextButton(onClick = onClose) { Text("Cancel", color = C.dim) } },
-    )
+        }
+        // Review lights up once there is something it can open.
+        val alpha by androidx.compose.animation.core
+            .animateFloatAsState(if (usable) 1f else 0.4f, tween(180), label = "review")
+        Box(Modifier.padding(16.dp).graphicsLayer { this.alpha = alpha }) {
+            GreenButton("Review", height = 56.dp) { if (usable) AppModel.handleText(text) }
+        }
+    }
 }
 
 /** Every game: reviewed ones and your archive, with "Load older games" for earlier months. */
@@ -647,12 +656,12 @@ private fun StatsRow(p: Profile) {
 }
 
 @Composable
-private fun PasteIcon() {
+fun PasteIcon(color: Color = C.dim) {
     Canvas(Modifier.size(24.dp)) {
         val u = size.width / 24f
         val st = Stroke(2f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
         drawRoundRect(
-            C.dim,
+            color,
             Offset(5f * u, 4.5f * u),
             androidx.compose.ui.geometry
                 .Size(14f * u, 17f * u),
@@ -661,15 +670,15 @@ private fun PasteIcon() {
             style = st,
         )
         drawRoundRect(
-            C.dim,
+            color,
             Offset(9f * u, 2.5f * u),
             androidx.compose.ui.geometry
                 .Size(6f * u, 4f * u),
             androidx.compose.ui.geometry
                 .CornerRadius(1f * u),
         )
-        drawLine(C.dim, Offset(8.5f * u, 11f * u), Offset(15.5f * u, 11f * u), 2f * u, StrokeCap.Round)
-        drawLine(C.dim, Offset(8.5f * u, 15f * u), Offset(13.5f * u, 15f * u), 2f * u, StrokeCap.Round)
+        drawLine(color, Offset(8.5f * u, 11f * u), Offset(15.5f * u, 11f * u), 2f * u, StrokeCap.Round)
+        drawLine(color, Offset(8.5f * u, 15f * u), Offset(13.5f * u, 15f * u), 2f * u, StrokeCap.Round)
     }
 }
 

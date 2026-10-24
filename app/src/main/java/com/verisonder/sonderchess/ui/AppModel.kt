@@ -38,6 +38,9 @@ sealed interface Screen {
 
     data object More : Screen
 
+    /** The Review tab: paste a game link, profile link or PGN. */
+    data object Paste : Screen
+
     /** The free analysis board: play both sides, set up positions, ask Stockfish. */
     data object Play : Screen
 
