@@ -39,7 +39,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -155,7 +154,6 @@ private fun buildHistory(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
-    var settings by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedGame?>(null) }
     val rows = rememberHistory()
     val p = AppModel.profile
@@ -234,18 +232,14 @@ fun HomeScreen() {
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
-        HomeTopBar(solid, onSettings = { settings = true })
+        HomeTopBar(solid)
     }
-    if (settings) SettingsDialog { settings = false }
     deleting?.let { g -> DeleteDialog(g) { deleting = null } }
 }
 
-/** Paste and settings, always reachable; the name fades in once the banner has scrolled away. */
+/** Paste, always reachable; the name fades in once the banner has scrolled away. */
 @Composable
-private fun HomeTopBar(
-    solid: Float,
-    onSettings: () -> Unit,
-) {
+private fun HomeTopBar(solid: Float) {
     var pasting by remember { mutableStateOf(false) }
     if (pasting) PasteDialog { pasting = false }
     Row(
@@ -261,9 +255,6 @@ private fun HomeTopBar(
             Modifier.size(44.dp).clip(CircleShape).clickable { pasting = true },
             contentAlignment = Alignment.Center,
         ) { PasteIcon() }
-        Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
-            GearIcon()
-        }
     }
 }
 
@@ -1104,111 +1095,6 @@ fun KindIcon(
             }
         }
     }
-}
-
-@Composable
-private fun GearIcon() {
-    Canvas(Modifier.size(24.dp)) {
-        val c = Offset(size.width / 2f, size.height / 2f)
-        val r = size.width * 0.3f
-        for (i in 0 until 8) {
-            val a = Math.toRadians(i * 45.0)
-            val ca = Math.cos(a).toFloat()
-            val sa = Math.sin(a).toFloat()
-            drawLine(
-                C.dim,
-                Offset(c.x + ca * r, c.y + sa * r),
-                Offset(c.x + ca * r * 1.45f, c.y + sa * r * 1.45f),
-                size.width * 0.14f,
-                StrokeCap.Round,
-            )
-        }
-        drawCircle(C.dim, r, c)
-        drawCircle(C.bar, r * 0.45f, c)
-    }
-}
-
-@Composable
-private fun SettingsDialog(onClose: () -> Unit) {
-    var depth by remember { mutableIntStateOf(AppModel.depth) }
-    AlertDialog(
-        onDismissRequest = onClose,
-        containerColor = C.panel,
-        title = { Text("Settings", style = display(18)) },
-        text = {
-            Column {
-                Text("Analysis depth", style = body(13, FontWeight.Bold, C.faint))
-                Spacer(Modifier.height(6.dp))
-                val depths = listOf(12, 16, 20)
-                SlidingSegments(listOf("Fast", "Normal", "Deep"), depths.indexOf(depth).coerceAtLeast(0), track = C.bg) {
-                    depth = depths[it]
-                    AppModel.setDepth(depths[it])
-                }
-                Spacer(Modifier.height(18.dp))
-                Text("Look", style = body(13, FontWeight.Bold, C.faint))
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(C.bg)
-                        .clickable {
-                            onClose()
-                            AppModel.screen = Screen.Theme
-                        }.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Canvas(Modifier.size(28.dp).clip(RoundedCornerShape(4.dp))) {
-                        val h = size.width / 2f
-                        val t = AppModel.board
-                        drawRect(
-                            t.light,
-                            Offset.Zero,
-                            androidx.compose.ui.geometry
-                                .Size(h, h),
-                        )
-                        drawRect(
-                            t.dark,
-                            Offset(h, 0f),
-                            androidx.compose.ui.geometry
-                                .Size(h, h),
-                        )
-                        drawRect(
-                            t.dark,
-                            Offset(0f, h),
-                            androidx.compose.ui.geometry
-                                .Size(h, h),
-                        )
-                        drawRect(
-                            t.light,
-                            Offset(h, h),
-                            androidx.compose.ui.geometry
-                                .Size(h, h),
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Theme", style = body(16, FontWeight.Bold))
-                        Text("${AppModel.board.name} board · ${AppModel.pieces.name} pieces", style = body(13, color = C.faint))
-                    }
-                    Text("›", style = body(22, color = C.dim))
-                }
-                Spacer(Modifier.height(18.dp))
-                Text("Chess.com account", style = body(13, FontWeight.Bold, C.faint))
-                Spacer(Modifier.height(6.dp))
-                Text(AppModel.username ?: "Not connected", style = body(16, FontWeight.Bold))
-            }
-        },
-        confirmButton = { TextButton(onClick = onClose) { Text("Done") } },
-        dismissButton = {
-            if (AppModel.username != null) {
-                TextButton(onClick = {
-                    AppModel.disconnect()
-                    onClose()
-                }) { Text("Disconnect", color = C.error) }
-            }
-        },
-    )
 }
 
 @Composable

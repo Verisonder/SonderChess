@@ -21,6 +21,7 @@ class Stockfish private constructor(
     private val input = OutputStreamWriter(process.outputStream)
     private val output = BufferedReader(InputStreamReader(process.inputStream))
 
+    @Synchronized
     private fun send(cmd: String) {
         input.write(cmd)
         input.write("\n")
@@ -57,13 +58,17 @@ class Stockfish private constructor(
         readUntil("readyok")
     }
 
+    /** Ends the search in progress early; [analyse] then returns what it has. */
+    fun stop() = send("stop")
+
     /**
      * Analyses [fen] to [depth] and returns up to two lines, scores from White's side.
-     * Blocking: call from a background thread.
+     * [onUpdate], if given, hears the lines as they deepen. Blocking: call from a background thread.
      */
     fun analyse(
         fen: String,
         depth: Int,
+        onUpdate: ((PositionEval) -> Unit)? = null,
     ): PositionEval {
         val whiteToMove = fen.split(' ').getOrNull(1) != "b"
         val lines = arrayOfNulls<EngineLine>(2)
@@ -83,6 +88,7 @@ class Stockfish private constructor(
             val sign = if (whiteToMove) 1 else -1
             lines[pv] = if (t[si + 1] == "mate") EngineLine(move, mate = v * sign) else EngineLine(move, cp = v * sign)
             reached = maxOf(reached, d)
+            onUpdate?.invoke(PositionEval(lines.filterNotNull(), reached))
         }
         return PositionEval(lines.filterNotNull(), reached)
     }

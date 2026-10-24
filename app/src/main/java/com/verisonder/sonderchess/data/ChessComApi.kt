@@ -46,6 +46,14 @@ data class Record(
     val best: Int?,
 )
 
+/** A Chess.com puzzle: the start position and the PGN of its solution. */
+data class Puzzle(
+    val title: String,
+    val fen: String,
+    val pgn: String,
+    val url: String,
+)
+
 /** One game from your public archive (live and daily games; bot games are not in it). */
 data class ArchiveGame(
     val id: String,
@@ -308,6 +316,19 @@ object ChessComApi {
             }
         return monthsOf(username, count).filter { it.endTime >= sinceMillis }
     }
+
+    /** Chess.com's daily puzzle, or a random one; saved, so the last one still opens offline. */
+    suspend fun puzzle(random: Boolean): Puzzle? =
+        withContext(Dispatchers.IO) {
+            val body = get("https://api.chess.com/pub/puzzle" + if (random) "/random" else "") ?: return@withContext null
+            val o = JSONObject(body)
+            Puzzle(
+                title = o.optString("title"),
+                fen = o.optString("fen"),
+                pgn = o.optString("pgn").replace("\r", ""),
+                url = o.optString("url"),
+            ).takeIf { it.fen.isNotBlank() && it.pgn.isNotBlank() }
+        }
 
     /** A player's profile picture link (cached), or null when they have none. */
     suspend fun avatar(username: String): String? {

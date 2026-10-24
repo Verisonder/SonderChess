@@ -33,6 +33,13 @@ sealed interface Screen {
 
     data object AllGames : Screen
 
+    data object Puzzles : Screen
+
+    data object More : Screen
+
+    /** The free analysis board (the Play button). */
+    data object Play : Screen
+
     data object Theme : Screen
 
     /** Stats, with [open] (a time control such as "rapid") already unfolded. */
@@ -97,6 +104,9 @@ object AppModel {
     var archive by mutableStateOf<List<ArchiveGame>>(emptyList())
         private set
     var accountBusy by mutableStateOf(false)
+
+    /** Whether Stockfish was on last time the analysis board was open. */
+    var playEngine = false
         private set
     var accountError by mutableStateOf<String?>(null)
         private set
