@@ -1,0 +1,12 @@
+SonderChess
+Copyright (C) 2026 Verisonder
+
+This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+It includes:
+- Stockfish (https://stockfishchess.org), GPL-3.0, downloaded at build time.
+- cburnett chess pieces by Colin M.L. Burnett, GPL-2.0-or-later.
+- Opening data from lichess-org/chess-openings, CC0 1.0 (licenses/CC0-chess-openings.txt).
+- DM Sans and Unbounded fonts, SIL Open Font License 1.1 (licenses/).

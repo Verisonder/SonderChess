@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- cburnett pieces by Colin M.L. Burnett, GPLv2+ -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="45dp"
+    android:height="45dp"
+    android:viewportWidth="45"
+    android:viewportHeight="45">
+    <path android:pathData="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z"
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M14 29.5v-13h17v13z"
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+    <path android:pathData="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z"
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M12 35.5h21m-20-4h19m-18-2h17m-17-13h17M11 14h23"
+        android:fillType="evenOdd"
+        android:strokeColor="#ececec"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter" />
+</vector>

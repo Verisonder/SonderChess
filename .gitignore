@@ -1,0 +1,18 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+*.jks
+*.keystore
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Downloaded by tools/fetch_stockfish.sh (CI does it on every build).
+app/src/main/jniLibs/
+
+# The handoff is private — it stays with Nidal, never in the repo.
+docs/HANDOFF.md
+HANDOFF.md

@@ -1,0 +1,386 @@
+package com.verisonder.sonderchess.ui
+
+import android.content.Intent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.verisonder.sonderchess.core.EngineLine
+import com.verisonder.sonderchess.core.Explain
+import com.verisonder.sonderchess.core.Label
+import com.verisonder.sonderchess.core.Move
+import com.verisonder.sonderchess.core.Position
+
+/**
+ * Move-by-move review. [startPly] is the move shown first (-1 = the starting position).
+ */
+@Composable
+fun ReviewScreen(
+    o: Opened,
+    startPly: Int,
+) {
+    val r = o.review
+    val positions = remember(o) { r.game.positions() }
+    var ply by rememberSaveable(o.saved.id) { mutableStateOf(startPly) }
+    var showBest by remember { mutableStateOf(false) }
+    var arrows by rememberSaveable { mutableStateOf(true) }
+    var flipped by rememberSaveable(o.saved.id) { mutableStateOf(!o.saved.meWhite) }
+    var forward by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    val last = r.game.moves.size - 1
+
+    fun go(p: Int) {
+        val n = p.coerceIn(-1, last)
+        forward = n == ply + 1
+        showBest = false
+        ply = n
+    }
+
+    val mr = if (ply >= 0) r.moves[ply] else null
+    val bestMove =
+        mr
+            ?.bestUci
+            ?.let { runCatching { Move.fromUci(it) }.getOrNull() }
+            ?.takeIf { bm -> positions[ply].legalMoves().contains(bm) }
+    val showingBest = showBest && mr != null && bestMove != null && mr.label != Label.Best
+    val boardPos: Position =
+        when {
+            mr == null -> positions[0]
+            showingBest -> positions[ply].play(bestMove!!)
+            else -> positions[ply + 1]
+        }
+    val boardMove: Move? =
+        when {
+            mr == null -> null
+            showingBest -> bestMove
+            else -> r.game.moves[ply]
+        }
+    val boardLabel: Label? =
+        when {
+            mr == null -> null
+            showingBest -> Label.Best
+            else -> mr.label
+        }
+    val boardArrows =
+        if (arrows &&
+            mr != null &&
+            !showingBest &&
+            bestMove != null &&
+            mr.uci != mr.bestUci &&
+            mr.label != Label.Book
+        ) {
+            listOf(bestMove)
+        } else {
+            emptyList()
+        }
+    val evalNow: EngineLine = r.evals[ply + 1]
+
+    Column(Modifier.fillMaxSize()) {
+        TopBar("Game Review", onBack = { AppModel.screen = Screen.Summary(o.saved.id) }) {
+            Box(Modifier.size(48.dp).clickable { flipped = !flipped }, contentAlignment = Alignment.Center) {
+                FlipIcon()
+            }
+        }
+        // Coach and speech bubble.
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 112.dp).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Coach(56.dp)
+            Spacer(Modifier.width(4.dp))
+            Bubble(Modifier.weight(1f)) {
+                if (mr == null) {
+                    Text(
+                        r.opening?.let { "This game opened with the $it. Tap next to step through it." }
+                            ?: "Tap next to step through the game.",
+                        style = body(14, FontWeight.Medium, C.bubbleText),
+                    )
+                } else {
+                    val words =
+                        if (showingBest) {
+                            Explain.Words("${mr.bestSan} is best", "This is what the engine would have played.")
+                        } else {
+                            Explain.move(r, ply, mr.white == o.saved.meWhite)
+                        }
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            LabelIcon(boardLabel ?: mr.label, 20.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(words.headline, style = body(15, FontWeight.Bold, C.bubbleText), modifier = Modifier.weight(1f))
+                            val ev = if (showingBest) r.evals[ply] else evalNow
+                            val over = if (!showingBest && ply == last && positions.last().isCheckmate()) r.game.result else null
+                            Box(
+                                Modifier
+                                    .clip(
+                                        RoundedCornerShape(4.dp),
+                                    ).background(Color(0xFFEEEEEE))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) { Text(evalText(ev, over), style = body(12, FontWeight.Bold, C.bubbleText)) }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(words.line, style = body(14, color = C.bubbleText))
+                    }
+                }
+            }
+        }
+        // Board with the eval bar.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val boardSize = maxWidth - 18.dp
+            Row(Modifier.height(boardSize)) {
+                EvalBar(evalNow, flipped, Modifier.fillMaxHeight())
+                ChessBoard(
+                    position = boardPos,
+                    last = boardMove,
+                    label = boardLabel,
+                    arrows = boardArrows,
+                    flipped = flipped,
+                    animateKey = ply * 2 + if (showingBest) 1 else 0,
+                    animate = forward || showingBest,
+                    modifier =
+                        Modifier.size(boardSize).pointerInput(ply) {
+                            var dx = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dx = 0f },
+                                onDragEnd = {
+                                    if (dx < -60f) {
+                                        go(ply + 1)
+                                    } else if (dx > 60f) {
+                                        go(ply - 1)
+                                    }
+                                },
+                            ) { _, d -> dx += d }
+                        },
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        MoveStrip(o, ply, onPick = { go(it) })
+        Spacer(Modifier.weight(1f))
+        // Bottom bar.
+        Row(
+            Modifier.fillMaxWidth().background(C.bar).padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BarButton("Show", on = arrows, enabled = true) { arrows = !arrows }
+            BarButton(
+                "Best",
+                on = showingBest,
+                enabled = mr != null && bestMove != null && mr.label != Label.Best && mr.label != Label.Book,
+            ) {
+                showBest = !showBest
+                forward = true
+            }
+            BarButton("Share", on = false, enabled = true) {
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.game.toPgn())
+                context.startActivity(Intent.createChooser(send, "Share PGN"))
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f)) {
+                GreenButton(if (ply >= last) "Done" else "Next", height = 52.dp) {
+                    if (ply >= last) AppModel.screen = Screen.Summary(o.saved.id) else go(ply + 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoveStrip(
+    o: Opened,
+    ply: Int,
+    onPick: (Int) -> Unit,
+) {
+    val r = o.review
+    val state = rememberLazyListState()
+    LaunchedEffect(ply) { if (ply >= 0) state.animateScrollToItem(maxOf(0, ply - 2)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Chevron(left = true) { onPick(ply - 1) }
+        LazyRow(state = state, modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            items(r.moves.size) { i ->
+                val m = r.moves[i]
+                val on = i == ply
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (on) C.panel2 else Color.Transparent)
+                        .clickable { onPick(i) }
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (m.white) Text("${i / 2 + 1}.", style = body(14, color = C.faint))
+                    if (m.white) Spacer(Modifier.width(4.dp))
+                    if (m.label in
+                        setOf(Label.Brilliant, Label.Great, Label.Best, Label.Miss, Label.Mistake, Label.Blunder, Label.Inaccuracy)
+                    ) {
+                        LabelIcon(m.label, 15.dp)
+                        Spacer(Modifier.width(3.dp))
+                    }
+                    Text(
+                        m.san,
+                        style =
+                            body(
+                                15,
+                                FontWeight.Bold,
+                                if (on) {
+                                    C.text
+                                } else if (m.label.good) {
+                                    C.dim
+                                } else {
+                                    m.label.colour()
+                                },
+                            ),
+                    )
+                }
+            }
+        }
+        Chevron(left = false) { onPick(ply + 1) }
+    }
+}
+
+@Composable
+private fun Chevron(
+    left: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(Modifier.size(40.dp).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(14.dp)) {
+            val w = 2.5.dp.toPx()
+            val p =
+                Path().apply {
+                    if (left) {
+                        moveTo(size.width * 0.7f, 0f)
+                        lineTo(size.width * 0.25f, size.height / 2)
+                        lineTo(size.width * 0.7f, size.height)
+                    } else {
+                        moveTo(size.width * 0.3f, 0f)
+                        lineTo(size.width * 0.75f, size.height / 2)
+                        lineTo(size.width * 0.3f, size.height)
+                    }
+                }
+            drawPath(p, C.dim, style = Stroke(w, cap = StrokeCap.Round))
+        }
+    }
+}
+
+@Composable
+private fun BarButton(
+    text: String,
+    on: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val col =
+        when {
+            !enabled -> Color(0xFF5E5C59)
+            on -> C.text
+            else -> C.dim
+        }
+    Column(
+        Modifier
+            .width(64.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Canvas(Modifier.size(22.dp)) {
+            val w = 2.dp.toPx()
+            when (text) {
+                "Show" -> {
+                    // An arrow: what the engine suggests.
+                    drawLine(
+                        col,
+                        Offset(size.width * 0.15f, size.height * 0.85f),
+                        Offset(size.width * 0.8f, size.height * 0.2f),
+                        w * 1.3f,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        col,
+                        Offset(size.width * 0.8f, size.height * 0.2f),
+                        Offset(size.width * 0.4f, size.height * 0.2f),
+                        w * 1.3f,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        col,
+                        Offset(size.width * 0.8f, size.height * 0.2f),
+                        Offset(size.width * 0.8f, size.height * 0.6f),
+                        w * 1.3f,
+                        StrokeCap.Round,
+                    )
+                }
+                "Best" -> {
+                    drawCircle(col, size.width * 0.32f, Offset(size.width * 0.44f, size.height * 0.44f), style = Stroke(w))
+                    drawLine(
+                        col,
+                        Offset(size.width * 0.67f, size.height * 0.67f),
+                        Offset(size.width * 0.92f, size.height * 0.92f),
+                        w * 1.3f,
+                        StrokeCap.Round,
+                    )
+                }
+                else -> {
+                    val a = Offset(size.width * 0.25f, size.height * 0.5f)
+                    val b = Offset(size.width * 0.75f, size.height * 0.2f)
+                    val c = Offset(size.width * 0.75f, size.height * 0.8f)
+                    drawLine(col, a, b, w)
+                    drawLine(col, a, c, w)
+                    drawCircle(col, size.width * 0.12f, a)
+                    drawCircle(col, size.width * 0.12f, b)
+                    drawCircle(col, size.width * 0.12f, c)
+                }
+            }
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(text, style = body(12, FontWeight.Medium, col))
+    }
+}
+
+@Composable
+private fun FlipIcon() {
+    Canvas(Modifier.size(22.dp)) {
+        val w = 2.dp.toPx()
+        drawLine(C.dim, Offset(size.width * 0.3f, size.height * 0.1f), Offset(size.width * 0.3f, size.height * 0.9f), w, StrokeCap.Round)
+        drawLine(C.dim, Offset(size.width * 0.3f, size.height * 0.1f), Offset(size.width * 0.1f, size.height * 0.32f), w, StrokeCap.Round)
+        drawLine(C.dim, Offset(size.width * 0.7f, size.height * 0.9f), Offset(size.width * 0.7f, size.height * 0.1f), w, StrokeCap.Round)
+        drawLine(C.dim, Offset(size.width * 0.7f, size.height * 0.9f), Offset(size.width * 0.9f, size.height * 0.68f), w, StrokeCap.Round)
+    }
+}

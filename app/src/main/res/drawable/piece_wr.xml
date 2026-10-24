@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- cburnett pieces by Colin M.L. Burnett, GPLv2+ -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="45dp"
+    android:height="45dp"
+    android:viewportWidth="45"
+    android:viewportHeight="45">
+    <path android:pathData="M9 39h27v-3H9zm3-3v-4h21v4zm-1-22V9h4v2h5V9h5v2h5V9h4v5"
+        android:fillColor="#ffffff"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
+    <path android:pathData="m34 14-3 3H14l-3-3"
+        android:fillColor="#ffffff"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M31 17v12.5H14V17"
+        android:fillColor="#ffffff"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+    <path android:pathData="m31 29.5 1.5 2.5h-20l1.5-2.5"
+        android:fillColor="#ffffff"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M11 14h23"
+        android:fillType="evenOdd"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="miter" />
+</vector>
