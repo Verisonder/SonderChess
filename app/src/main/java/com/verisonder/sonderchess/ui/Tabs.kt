@@ -321,13 +321,19 @@ fun MoreScreen() {
         AlertDialog(
             onDismissRequest = { confirmDisconnect = false },
             containerColor = C.panel,
-            title = { Text("Remove ${AppModel.username}?", style = display(18)) },
-            text = { Text("Your reviewed games stay on the phone.", style = body(15, color = C.dim)) },
+            title = { Text("Change account?", style = display(18)) },
+            text = {
+                Text(
+                    "The games reviewed for ${AppModel.username} and the saved analysis will be removed from this device.",
+                    style = body(15, color = C.dim),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDisconnect = false
                     AppModel.disconnect()
-                }) { Text("Remove", style = body(15, FontWeight.Bold, C.error)) }
+                    AppModel.screen = Screen.Home
+                }) { Text("Change", style = body(15, FontWeight.Bold, C.error)) }
             },
             dismissButton = {
                 TextButton(
@@ -354,7 +360,7 @@ fun MoreScreen() {
             MoreRow(2, "Stats", "Ratings, records and puzzles") { AppModel.screen = Screen.Stats() }
             MoreRow(3, "Game History", "Every game, reviewed or not") { AppModel.screen = Screen.AllGames }
             if (AppModel.username != null) {
-                MoreRow(4, "Chess.com account", "${AppModel.username} · tap to remove", danger = true) { confirmDisconnect = true }
+                MoreRow(4, "Change account", AppModel.username.orEmpty()) { confirmDisconnect = true }
             } else {
                 MoreRow(5, "Choose your Chess.com account", "Show your profile, ratings and games on Home") {
                     AppModel.hideConnect(false)

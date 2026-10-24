@@ -461,11 +461,24 @@ object AppModel {
         }
     }
 
+    /**
+     * Lets go of the chosen account and everything kept for it: saved reviews and the copies of
+     * its Chess.com data. Home then offers to choose an account again.
+     */
     fun disconnect() {
         store.username = null
         username = null
         profile = null
         archive = emptyList()
+        offline = false
+        opened = null
+        synchronized(reviews) { reviews.clear() }
+        hideConnect(false)
+        scope.launch(Dispatchers.IO) {
+            store.list().forEach { store.delete(it.id) }
+            ChessComApi.clearSaved()
+            history = emptyList()
+        }
     }
 
     /** Reviews a game you just played on the phone (against a bot); it goes into your history. */

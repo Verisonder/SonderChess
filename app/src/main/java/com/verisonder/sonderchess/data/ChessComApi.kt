@@ -100,6 +100,12 @@ object ChessComApi {
             File(dir, name)
         }
 
+    /** Forgets every saved answer (when the chosen account is changed). */
+    fun clearSaved() {
+        cacheDir?.listFiles()?.forEach { it.delete() }
+        months.clear()
+    }
+
     /** A month archive from before this month: its games never change once the month is over. */
     private fun finishedMonth(url: String): Boolean {
         val m = Regex("""/games/(\d{4})/(\d{2})$""").find(url) ?: return false
