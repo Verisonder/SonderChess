@@ -2,12 +2,13 @@ package com.verisonder.sonderchess.ui
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,10 +44,12 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.BuildConfig
+import kotlinx.coroutines.launch
 
 /** The three pages with the bar along the bottom. */
 fun isTab(s: Screen) = s == Screen.Home || s == Screen.PlayTab || s == Screen.Puzzles || s == Screen.Paste || s == Screen.More
@@ -59,7 +62,21 @@ fun isTab(s: Screen) = s == Screen.Home || s == Screen.PlayTab || s == Screen.Pu
 fun TabScaffold(current: Screen) {
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
-            Crossfade(current, animationSpec = tween(180), label = "tab") { tab ->
+            // Pages slide in from the side of the tab you moved towards.
+            androidx.compose.animation.AnimatedContent(
+                current,
+                transitionSpec = {
+                    val dir = if (tabIndex(targetState) >= tabIndex(initialState)) 1 else -1
+                    (
+                        androidx.compose.animation.slideInHorizontally(tween(260)) { w -> dir * w / 4 } +
+                            androidx.compose.animation.fadeIn(tween(200))
+                    ).togetherWith(
+                        androidx.compose.animation.slideOutHorizontally(tween(220)) { w -> -dir * w / 6 } +
+                            androidx.compose.animation.fadeOut(tween(150)),
+                    )
+                },
+                label = "tab",
+            ) { tab ->
                 when (tab) {
                     Screen.PlayTab -> PlayTabScreen()
                     Screen.Puzzles -> PuzzlesScreen()
@@ -73,39 +90,96 @@ fun TabScaffold(current: Screen) {
     }
 }
 
+private val tabOrder = listOf(Screen.Home, Screen.PlayTab, Screen.Puzzles, Screen.Paste, Screen.More)
+
+private fun tabIndex(s: Screen) = tabOrder.indexOf(s).coerceAtLeast(0)
+
+/**
+ * The bar along the bottom. Tap a tab, or slide along the bar: the green line follows your
+ * finger and the page switches to the tab it ends under (a short flick moves one tab).
+ */
 @Composable
 private fun TabBar(current: Screen) {
-    val index =
-        when (current) {
-            Screen.PlayTab -> 1
-            Screen.Puzzles -> 2
-            Screen.Paste -> 3
-            Screen.More -> 4
-            else -> 0
+    val index = tabIndex(current)
+    val line =
+        remember {
+            androidx.compose.animation.core
+                .Animatable(index.toFloat())
         }
-    // A short green line glides over to the tab you pick.
-    val at by androidx.compose.animation.core.animateFloatAsState(
-        index.toFloat(),
-        androidx.compose.animation.core
-            .spring(dampingRatio = 0.7f, stiffness = 500f),
-        label = "tabline",
-    )
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var dragging by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(index) {
+        if (!dragging) {
+            line.animateTo(
+                index.toFloat(),
+                androidx.compose.animation.core
+                    .spring(dampingRatio = 0.7f, stiffness = 500f),
+            )
+        }
+    }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().background(C.bar)) {
-        val w = maxWidth / 5
+        val w = maxWidth / tabOrder.size
+        val tabPx = with(androidx.compose.ui.platform.LocalDensity.current) { w.toPx() }
         Box(
             Modifier
-                .padding(start = w * at + w * 0.3f)
+                .padding(start = w * line.value + w * 0.3f)
                 .width(w * 0.4f)
                 .height(3.dp)
                 .clip(RoundedCornerShape(2.dp))
                 .background(C.green),
         )
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {
-            Tab("Home", "home", index == 0, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
-            Tab("Play", "play", index == 1, Modifier.weight(1f)) { AppModel.screen = Screen.PlayTab }
-            Tab("Puzzles", "puzzles", index == 2, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
-            Tab("Review", "paste", index == 3, Modifier.weight(1f)) { AppModel.screen = Screen.Paste }
-            Tab("More", "more", index == 4, Modifier.weight(1f)) { AppModel.screen = Screen.More }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(index) {
+                    var dx = 0f
+                    var shown = index
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            dragging = true
+                            dx = 0f
+                            shown = index
+                        },
+                        onDragEnd = {
+                            var target = (index + dx / tabPx).let { kotlin.math.round(it).toInt() }
+                            if (target == index && kotlin.math.abs(dx) > tabPx * 0.25f) target = index + if (dx > 0) 1 else -1
+                            target = target.coerceIn(0, tabOrder.lastIndex)
+                            dragging = false
+                            scope.launch {
+                                line.animateTo(
+                                    target.toFloat(),
+                                    androidx.compose.animation.core
+                                        .spring(dampingRatio = 0.7f, stiffness = 500f),
+                                )
+                            }
+                            if (target != index) AppModel.screen = tabOrder[target]
+                        },
+                        onDragCancel = {
+                            dragging = false
+                            scope.launch { line.animateTo(index.toFloat()) }
+                        },
+                    ) { change, d ->
+                        change.consume()
+                        dx += d
+                        val pos = (index + dx / tabPx).coerceIn(0f, tabOrder.lastIndex.toFloat())
+                        scope.launch { line.snapTo(pos) }
+                        // A small tick each time the line passes a tab.
+                        val under = kotlin.math.round(pos).toInt()
+                        if (under != shown) {
+                            shown = under
+                            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                        }
+                    }
+                }.padding(top = 8.dp, bottom = 6.dp),
+        ) {
+            // While sliding, the tab under the line lights up.
+            val lit = if (dragging) kotlin.math.round(line.value).toInt() else index
+            Tab("Home", "home", lit == 0, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
+            Tab("Play", "play", lit == 1, Modifier.weight(1f)) { AppModel.screen = Screen.PlayTab }
+            Tab("Puzzles", "puzzles", lit == 2, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
+            Tab("Review", "paste", lit == 3, Modifier.weight(1f)) { AppModel.screen = Screen.Paste }
+            Tab("More", "more", lit == 4, Modifier.weight(1f)) { AppModel.screen = Screen.More }
         }
     }
 }
