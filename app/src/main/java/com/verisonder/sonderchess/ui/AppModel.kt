@@ -77,7 +77,7 @@ sealed interface Screen {
         val fetched: FetchedGame,
     ) : Screen
 
-    /** "Is this you?" before connecting the account of the player you seem to be. */
+    /** After a first shared game: Choose the account of the player you seem to be, or not. */
     data class ConfirmMe(
         val fetched: FetchedGame,
         val white: Boolean,
@@ -129,7 +129,7 @@ object AppModel {
     var botLevel = 2
     var botColour = 0
 
-    /** Whether the Connect card on Home is hidden ("Not now"). */
+    /** Whether the "Choose your Chess.com account" card on Home is hidden ("Not now"). */
     var connectHidden by mutableStateOf(false)
         private set
 

@@ -194,7 +194,6 @@ private fun Tab(
 ) {
     val col by animateColorAsState(if (on) C.text else Color(0xFF8B8987), tween(160), label = "tab")
     val pawn = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.PAWN]
-    val knight = piecePainters()[6 + com.verisonder.sonderchess.core.Piece.KNIGHT]
     // The icon gives a little hop when its tab is picked.
     val hop =
         remember {
@@ -235,14 +234,16 @@ private fun Tab(
                     }
                 }
                 "play" -> {
-                    // The knight from your piece set.
-                    knight?.run {
-                        draw(
-                            size,
-                            colorFilter =
-                                androidx.compose.ui.graphics.ColorFilter
-                                    .tint(col),
-                        )
+                    // A board: a rounded frame with every other square filled in.
+                    val frame =
+                        androidx.compose.ui.geometry
+                            .CornerRadius(2.6f * u)
+                    drawRoundRect(col, Offset(3f * u, 3f * u), Size(18f * u, 18f * u), frame, style = Stroke(1.8f * u))
+                    val sq = 15f * u / 4f
+                    for (r in 0..3) {
+                        for (c in 0..3) {
+                            if ((r + c) % 2 == 0) drawRect(col, Offset(4.5f * u + c * sq, 4.5f * u + r * sq), Size(sq, sq))
+                        }
                     }
                 }
                 "puzzles" -> {

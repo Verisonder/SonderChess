@@ -1262,9 +1262,8 @@ fun PickSideScreen(f: FetchedGame) {
 }
 
 /**
- * Before connecting an account from a shared game: the player you seem to be, and a choice.
- * Yes picks that account; "Yes, but don't choose it" reviews it as yours without loading any profile;
- * No asks which player you are.
+ * After sharing a first game: the player you seem to be, with Choose to make it your account
+ * (your profile, ratings and games then show on Home), or Not now to just review the game.
  */
 @Composable
 fun ConfirmMeScreen(
@@ -1279,7 +1278,7 @@ fun ConfirmMeScreen(
     ) {
         Coach(80.dp, reactTo = p.name)
         Spacer(Modifier.height(18.dp))
-        Text("Is this you?", style = display(22))
+        Text("Your Chess.com account", style = display(22))
         Spacer(Modifier.height(18.dp))
         Row(
             Modifier
@@ -1300,18 +1299,15 @@ fun ConfirmMeScreen(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "Yes chooses this Chess.com account, so your profile, ratings and games show on Home.",
+            "Choose it to see your profile, ratings and games on Home.",
             style = body(13, color = C.faint),
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(22.dp))
-        GreenButton("Yes, that's me", height = 54.dp) { AppModel.pickSide(f, white) }
+        GreenButton("Choose", height = 54.dp) { AppModel.pickSide(f, white) }
         Spacer(Modifier.height(6.dp))
         TextButton(onClick = { AppModel.reviewWithoutConnecting(f, white) }) {
-            Text("Yes, but don't choose it", style = body(15, FontWeight.Bold, C.dim))
-        }
-        TextButton(onClick = { AppModel.screen = Screen.PickSide(f) }) {
-            Text("No, that's not me", style = body(15, FontWeight.Bold, C.dim))
+            Text("Not now", style = body(15, FontWeight.Bold, C.dim))
         }
     }
 }
