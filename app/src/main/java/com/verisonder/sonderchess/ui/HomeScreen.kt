@@ -412,17 +412,37 @@ private fun DeleteDialog(
     g: SavedGame,
     onClose: () -> Unit,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Delete this review?") },
-        text = { Text("${g.white.name} vs ${g.black.name}") },
-        confirmButton = {
-            TextButton(onClick = {
-                AppModel.delete(g.id)
-                onClose()
-            }) { Text("Delete") }
+        title = { Text(if (confirmDelete) "Delete this review?" else "This review", style = display(18)) },
+        text = {
+            Column {
+                Text("${g.white.name} vs ${g.black.name}", style = body(15, color = C.dim))
+                Text("Depth ${g.depth}", style = body(13, color = C.faint))
+            }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Keep") } },
+        confirmButton = {
+            if (confirmDelete) {
+                TextButton(onClick = {
+                    AppModel.delete(g.id)
+                    onClose()
+                }) { Text("Delete", style = body(15, FontWeight.Bold, C.error)) }
+            } else {
+                TextButton(onClick = {
+                    onClose()
+                    AppModel.reanalyse(g)
+                }) { Text("Re-review", style = body(15, FontWeight.Bold, C.green)) }
+            }
+        },
+        dismissButton = {
+            Row {
+                if (!confirmDelete) {
+                    TextButton(onClick = { confirmDelete = true }) { Text("Delete", style = body(15, FontWeight.Bold, C.error)) }
+                }
+                TextButton(onClick = onClose) { Text(if (confirmDelete) "Keep" else "Cancel", style = body(15, FontWeight.Bold, C.dim)) }
+            }
+        },
         containerColor = C.panel,
     )
 }

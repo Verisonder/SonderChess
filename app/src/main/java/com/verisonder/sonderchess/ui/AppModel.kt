@@ -524,10 +524,11 @@ object AppModel {
         fetched: FetchedGame,
         meWhite: Boolean,
         keep: Boolean = true,
+        fresh: Boolean = false,
     ) {
         val id = "${fetched.kind}-${fetched.id}"
         val depth = store.depth
-        store.load(id)?.takeIf { it.depth >= depth }?.let {
+        store.load(id)?.takeIf { !fresh && it.depth >= depth }?.let {
             open(it)
             return
         }
@@ -640,14 +641,20 @@ object AppModel {
 
     /** Re-run an open game at the current depth (e.g. after choosing Deep). */
     fun reanalyse() {
-        val o = opened ?: return
-        val g: Game = o.saved.game
-        val f = FetchedGame(g, o.saved.white, o.saved.black, o.saved.id.substringAfter('-'), o.saved.id.substringBefore('-'))
+        opened?.let { reanalyse(it.saved) }
+    }
+
+    /**
+     * Analyses a saved game again from scratch at the current depth. The old review stays
+     * saved until the new one replaces it, so cancelling half way loses nothing.
+     */
+    fun reanalyse(saved: SavedGame) {
+        val g: Game = saved.game
+        val f = FetchedGame(g, saved.white, saved.black, saved.id.substringAfter('-'), saved.id.substringBefore('-'))
         start {
             val known = username
             val mine = known == null || f.white.name.equals(known, true) || f.black.name.equals(known, true)
-            if (mine) store.delete(o.saved.id)
-            analyse(f, o.saved.meWhite, keep = mine)
+            analyse(f, saved.meWhite, keep = mine, fresh = true)
         }
     }
 }
