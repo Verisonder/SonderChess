@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                             Screen.Home -> HomeScreen()
                             Screen.AllGames -> AllGamesScreen()
                             Screen.Theme -> ThemeScreen()
-                            Screen.Stats -> StatsScreen()
+                            is Screen.Stats -> StatsScreen(st.open)
                             is Screen.Game -> AppModel.viewing?.takeIf { it.id == st.id }?.let { GameScreen(it) } ?: HomeScreen()
                             is Screen.Loading -> LoadingScreen(st.message)
                             is Screen.Analysing -> AnalysingScreen(AppModel.screen as? Screen.Analysing ?: st)

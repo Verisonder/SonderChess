@@ -620,7 +620,7 @@ private fun StatsRow(p: Profile) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("Stats", style = display(19), modifier = Modifier.weight(1f))
-        Text("View All", style = body(16, FontWeight.Bold, C.dim), modifier = Modifier.clickable { AppModel.screen = Screen.Stats })
+        Text("View All", style = body(16, FontWeight.Bold, C.dim), modifier = Modifier.clickable { AppModel.screen = Screen.Stats() })
     }
     LazyRow(
         contentPadding =
@@ -635,6 +635,7 @@ private fun StatsRow(p: Profile) {
                     .appear(i + 1, "card" to kind)
                     .size(118.dp)
                     .clip(RoundedCornerShape(8.dp))
+                    .clickable { AppModel.screen = Screen.Stats(kind) }
                     .background(Color(0xFF2A2825))
                     .padding(bottom = 3.dp)
                     .clip(RoundedCornerShape(8.dp))

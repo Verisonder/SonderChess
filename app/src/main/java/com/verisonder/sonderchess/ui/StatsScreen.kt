@@ -57,11 +57,11 @@ private val periods = listOf("7D" to 7, "30D" to 30, "90D" to 90, "1Y" to 365, "
 
 /** Ratings, games and rating changes over a period; tap a time control for its graph and record. */
 @Composable
-fun StatsScreen() {
+fun StatsScreen(openFirst: String? = null) {
     val p = AppModel.profile
     val user = AppModel.username
     var period by rememberSaveable { mutableIntStateOf(2) }
-    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    var open by rememberSaveable { mutableStateOf(openFirst) }
     val days = periods[period].second
     val since = if (days == 0) 0L else System.currentTimeMillis() - days * 86_400_000L
     val games by produceState(StatsCache.games[user to period], user, period) {

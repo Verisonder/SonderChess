@@ -35,7 +35,10 @@ sealed interface Screen {
 
     data object Theme : Screen
 
-    data object Stats : Screen
+    /** Stats, with [open] (a time control such as "rapid") already unfolded. */
+    data class Stats(
+        val open: String? = null,
+    ) : Screen
 
     data class Game(
         val id: String,
