@@ -90,7 +90,7 @@ fun TabScaffold(current: Screen) {
     }
 }
 
-private val tabOrder = listOf(Screen.Home, Screen.PlayTab, Screen.Puzzles, Screen.Paste, Screen.More)
+private val tabOrder = listOf(Screen.Home, Screen.Puzzles, Screen.PlayTab, Screen.Paste, Screen.More)
 
 private fun tabIndex(s: Screen) = tabOrder.indexOf(s).coerceAtLeast(0)
 
@@ -176,8 +176,8 @@ private fun TabBar(current: Screen) {
             // While sliding, the tab under the line lights up.
             val lit = if (dragging) kotlin.math.round(line.value).toInt() else index
             Tab("Home", "home", lit == 0, Modifier.weight(1f)) { AppModel.screen = Screen.Home }
-            Tab("Play", "play", lit == 1, Modifier.weight(1f)) { AppModel.screen = Screen.PlayTab }
-            Tab("Puzzles", "puzzles", lit == 2, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
+            Tab("Puzzles", "puzzles", lit == 1, Modifier.weight(1f)) { AppModel.screen = Screen.Puzzles }
+            Tab("Play", "play", lit == 2, Modifier.weight(1f)) { AppModel.screen = Screen.PlayTab }
             Tab("Review", "paste", lit == 3, Modifier.weight(1f)) { AppModel.screen = Screen.Paste }
             Tab("More", "more", lit == 4, Modifier.weight(1f)) { AppModel.screen = Screen.More }
         }
