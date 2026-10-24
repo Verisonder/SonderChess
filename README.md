@@ -36,7 +36,8 @@ gradle assembleDebug
 - [Stockfish](https://stockfishchess.org) (GPL-3.0), the chess engine.
 - Chess pieces by [Colin M.L. Burnett](https://en.wikipedia.org/wiki/User:Cburnett) (GPL-2.0-or-later).
 - Opening names from [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0).
-- Fonts: DM Sans and Unbounded (SIL Open Font License).
+- Fonts: Montserrat and Roboto (SIL Open Font License).
+- Badge symbols from Google's Material icons (Apache 2.0).
 
 SonderChess is not affiliated with or endorsed by Chess.com.
 

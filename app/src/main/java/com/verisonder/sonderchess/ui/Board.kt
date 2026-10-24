@@ -19,14 +19,15 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 import com.verisonder.sonderchess.R
 import com.verisonder.sonderchess.core.Label
 import com.verisonder.sonderchess.core.Move
@@ -200,83 +201,72 @@ private fun DrawScope.drawArrow(
     drawPath(tri, C.arrow)
 }
 
-/** A label badge: coloured disc with a white symbol. Drawn, so no images are needed. */
+/**
+ * Glyphs for the badges, 24x24 path data from Google's Material icons (Apache 2.0):
+ * star, thumb_up, check, menu_book and close.
+ */
+private object Glyphs {
+    private fun p(d: String) = PathParser().parsePathString(d).toPath()
+
+    val star by lazy { p("M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z") }
+    val thumb by lazy {
+        p(
+            "M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 " +
+                "8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z",
+        )
+    }
+    val check by lazy { p("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z") }
+    val book by lazy {
+        p(
+            "M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 " +
+                ".15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 " +
+                "1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 " +
+                "1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z",
+        )
+    }
+    val close by lazy { p("M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z") }
+}
+
+private fun DrawScope.glyph(
+    path: Path,
+    c: Offset,
+    size: Float,
+) {
+    val k = size / 24f
+    withTransform({
+        translate(c.x - 12f * k, c.y - 12f * k)
+        scale(k, k, Offset.Zero)
+    }) { drawPath(path, Color.White) }
+}
+
+/** A label badge: coloured disc with a darker lip and a white symbol. Drawn, so it scales. */
 fun DrawScope.drawLabelIcon(
     label: Label,
     c: Offset,
     r: Float,
     tm: TextMeasurer,
 ) {
-    drawCircle(Color(0x33000000), r * 1.08f, Offset(c.x, c.y + r * 0.12f))
-    drawCircle(label.colour(), r, c)
-    val white = Color.White
-    val sw = r * 0.26f
+    val base = label.colour()
+    val lip = Color(base.red * 0.72f, base.green * 0.72f, base.blue * 0.72f, 1f)
+    drawCircle(Color(0x40000000), r, Offset(c.x, c.y + r * 0.16f))
+    drawCircle(lip, r, Offset(c.x, c.y + r * 0.08f))
+    drawCircle(base, r, c)
     when (label) {
-        Label.Best -> drawPath(starPath(c, r * 0.62f, r * 0.27f), white)
-        Label.Good -> drawPath(checkPath(c, r * 0.55f, 0f), white, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        Label.Excellent -> {
-            drawPath(checkPath(c, r * 0.45f, -r * 0.2f), white, style = Stroke(sw * 0.85f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawPath(checkPath(c, r * 0.45f, r * 0.22f), white, style = Stroke(sw * 0.85f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
-        Label.Book -> {
-            // An open book: two pages meeting at the spine.
-            val p =
-                Path().apply {
-                    moveTo(c.x, c.y - r * 0.32f)
-                    lineTo(c.x - r * 0.55f, c.y - r * 0.45f)
-                    lineTo(c.x - r * 0.55f, c.y + r * 0.35f)
-                    lineTo(c.x, c.y + r * 0.48f)
-                    lineTo(c.x + r * 0.55f, c.y + r * 0.35f)
-                    lineTo(c.x + r * 0.55f, c.y - r * 0.45f)
-                    close()
-                }
-            drawPath(p, white)
-            drawLine(label.colour(), Offset(c.x, c.y - r * 0.3f), Offset(c.x, c.y + r * 0.45f), strokeWidth = r * 0.1f)
-        }
-        Label.Miss -> {
-            val d = r * 0.36f
-            drawLine(white, Offset(c.x - d, c.y - d), Offset(c.x + d, c.y + d), sw, StrokeCap.Round)
-            drawLine(white, Offset(c.x + d, c.y - d), Offset(c.x - d, c.y + d), sw, StrokeCap.Round)
-        }
+        Label.Best -> glyph(Glyphs.star, c, r * 1.45f)
+        Label.Excellent -> glyph(Glyphs.thumb, Offset(c.x, c.y - r * 0.02f), r * 1.2f)
+        Label.Good -> glyph(Glyphs.check, c, r * 1.55f)
+        Label.Book -> glyph(Glyphs.book, c, r * 1.3f)
+        Label.Miss -> glyph(Glyphs.close, c, r * 1.5f)
         else -> {
             val style =
                 TextStyle(
-                    fontFamily = Body,
-                    fontWeight = FontWeight.Bold,
-                    fontSize =
-                        (
-                            r *
-                                if (label.symbol.length > 1) 1.0f else 1.25f
-                        ).toSp(),
-                    letterSpacing = (-0.5).sp,
+                    fontFamily = Display,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = (r * if (label.symbol.length > 1) 1.05f else 1.3f).toSp(),
+                    letterSpacing = (-0.06f * r).toSp(),
                 )
             val t = tm.measure(label.symbol, style)
-            drawText(t, white, Offset(c.x - t.size.width / 2f, c.y - t.size.height / 2f))
+            drawText(t, Color.White, Offset(c.x - t.size.width / 2f, c.y - t.size.height / 2f))
         }
     }
-}
-
-private fun starPath(
-    c: Offset,
-    outer: Float,
-    inner: Float,
-) = Path().apply {
-    for (i in 0 until 10) {
-        val rad = if (i % 2 == 0) outer else inner
-        val a = Math.toRadians(-90.0 + i * 36.0)
-        val x = c.x + (rad * cos(a)).toFloat()
-        val y = c.y + (rad * sin(a)).toFloat()
-        if (i == 0) moveTo(x, y) else lineTo(x, y)
-    }
-    close()
-}
-
-private fun checkPath(
-    c: Offset,
-    size: Float,
-    dx: Float,
-) = Path().apply {
-    moveTo(c.x + dx - size * 0.75f, c.y)
-    lineTo(c.x + dx - size * 0.2f, c.y + size * 0.55f)
-    lineTo(c.x + dx + size * 0.8f, c.y - size * 0.55f)
 }

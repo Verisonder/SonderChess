@@ -241,7 +241,7 @@ fun GreenButton(
                 .background(C.green),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text, style = body(20, FontWeight.Bold))
+            Text(text, style = display(20))
         }
     }
 }
@@ -286,11 +286,22 @@ fun TopBar(
                 }
             }
         }
-        Text(title, style = body(20, FontWeight.Bold), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+        Text(title, style = display(20), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
         Row(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.width(96.dp),
         ) { actions() }
     }
+}
+
+/** "Nxe7" → "♘xe7": piece letters as chess symbols (outline for White, solid for Black). */
+fun figurine(
+    san: String,
+    white: Boolean,
+): String {
+    val i = "KQRBN".indexOf(san.firstOrNull() ?: ' ')
+    if (i < 0) return san
+    val glyphs = if (white) "♔♕♖♗♘" else "♚♛♜♝♞"
+    return glyphs[i] + san.substring(1)
 }

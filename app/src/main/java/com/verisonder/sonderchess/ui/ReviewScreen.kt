@@ -145,7 +145,13 @@ fun ReviewScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             LabelIcon(boardLabel ?: mr.label, 20.dp)
                             Spacer(Modifier.width(6.dp))
-                            Text(words.headline, style = body(15, FontWeight.Bold, C.bubbleText), modifier = Modifier.weight(1f))
+                            val shownSan = if (showingBest) mr.bestSan.orEmpty() else mr.san
+                            val moverWhite = mr.white
+                            Text(
+                                figurine(shownSan, moverWhite) + words.headline.removePrefix(shownSan),
+                                style = body(16, FontWeight.Bold, C.bubbleText),
+                                modifier = Modifier.weight(1f),
+                            )
                             val ev = if (showingBest) r.evals[ply] else evalNow
                             val over = if (!showingBest && ply == last && positions.last().isCheckmate()) r.game.result else null
                             Box(
@@ -255,7 +261,7 @@ private fun MoveStrip(
                         Spacer(Modifier.width(3.dp))
                     }
                     Text(
-                        m.san,
+                        figurine(m.san, m.white),
                         style =
                             body(
                                 15,

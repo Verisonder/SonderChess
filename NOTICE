@@ -9,4 +9,5 @@ It includes:
 - Stockfish (https://stockfishchess.org), GPL-3.0, downloaded at build time.
 - cburnett chess pieces by Colin M.L. Burnett, GPL-2.0-or-later.
 - Opening data from lichess-org/chess-openings, CC0 1.0 (licenses/CC0-chess-openings.txt).
-- DM Sans and Unbounded fonts, SIL Open Font License 1.1 (licenses/).
+- Montserrat and Roboto fonts, SIL Open Font License 1.1 (licenses/).
+- Material icon glyphs (star, thumb up, check, book, close), Apache 2.0, by Google.

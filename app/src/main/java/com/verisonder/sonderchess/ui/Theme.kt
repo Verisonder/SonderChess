@@ -37,19 +37,19 @@ object C {
 
 fun Label.colour() = Color(color)
 
-/** Unbounded: headings and numbers. */
+/** Montserrat: titles and buttons. */
 val Display =
     FontFamily(
-        Font(R.font.unbounded_bold, FontWeight.Bold),
-        Font(R.font.unbounded_extrabold, FontWeight.ExtraBold),
+        Font(R.font.montserrat_bold, FontWeight.Bold),
+        Font(R.font.montserrat_extrabold, FontWeight.ExtraBold),
     )
 
-/** DM Sans: everything else. */
+/** Roboto: everything else. Bundled, since some phones (Xiaomi) use another system font. */
 val Body =
     FontFamily(
-        Font(R.font.dmsans_regular, FontWeight.Normal),
-        Font(R.font.dmsans_medium, FontWeight.Medium),
-        Font(R.font.dmsans_bold, FontWeight.Bold),
+        Font(R.font.roboto_regular, FontWeight.Normal),
+        Font(R.font.roboto_medium, FontWeight.Medium),
+        Font(R.font.roboto_bold, FontWeight.Bold),
     )
 
 fun body(
@@ -61,12 +61,12 @@ fun body(
 fun display(
     size: Int,
     color: Color = C.text,
+    weight: FontWeight = FontWeight.Bold,
 ) = TextStyle(
     fontFamily = Display,
-    fontWeight = FontWeight.ExtraBold,
+    fontWeight = weight,
     fontSize = size.sp,
     color = color,
-    letterSpacing = (-0.02f * size).sp,
 )
 
 @Composable
