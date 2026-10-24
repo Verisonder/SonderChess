@@ -51,7 +51,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -698,28 +700,49 @@ fun KindIcon(
                 drawPath(p, Color(0xFFF7C631))
             }
             "bullet" -> {
-                val c = Color(0xFFE3AA24)
-                val p =
-                    Path().apply {
-                        moveTo(7f * u, 21f * u)
-                        lineTo(7f * u, 10f * u)
-                        cubicTo(7f * u, 5f * u, 12f * u, 2f * u, 12f * u, 2f * u)
-                        cubicTo(12f * u, 2f * u, 17f * u, 5f * u, 17f * u, 10f * u)
-                        lineTo(17f * u, 21f * u)
-                        close()
-                    }
-                drawPath(p, c)
-                drawLine(C.bg, o(7f, 15.5f), o(17f, 15.5f), 1.4f * u)
+                // A fat gold bullet flying up and to the right, with speed streaks.
+                drawLine(Color(0xFF8B8987), o(2f, 20f), o(6f, 16f), 1.5f * u, StrokeCap.Round)
+                drawLine(Color(0xFF8B8987), o(4f, 22f), o(8f, 18f), 1.5f * u, StrokeCap.Round)
+                withTransform({ rotate(45f, o(12f, 12f)) }) {
+                    val body =
+                        Path().apply {
+                            moveTo(6.8f * u, 18.5f * u)
+                            lineTo(6.8f * u, 11f * u)
+                            cubicTo(6.8f * u, 6f * u, 9.5f * u, 2.5f * u, 12f * u, 2.5f * u)
+                            cubicTo(14.5f * u, 2.5f * u, 17.2f * u, 6f * u, 17.2f * u, 11f * u)
+                            lineTo(17.2f * u, 18.5f * u)
+                            close()
+                        }
+                    drawPath(body, Color(0xFFF2B925))
+                    // Shine on one side, darker base.
+                    drawLine(Color(0xFFFFE28F), o(9.4f, 7.5f), o(9.4f, 14f), 1.8f * u, StrokeCap.Round)
+                    drawRect(
+                        Color(0xFFC98E12),
+                        o(6.8f, 16.4f),
+                        androidx.compose.ui.geometry
+                            .Size(10.4f * u, 2.1f * u),
+                    )
+                }
             }
             "daily" -> {
-                val c = Color(0xFFF7C631)
-                drawCircle(c, 5f * u, o(12f, 12f))
-                for (i in 0 until 8) {
-                    val a = Math.toRadians(i * 45.0)
-                    val ca = Math.cos(a).toFloat()
-                    val sa = Math.sin(a).toFloat()
-                    drawLine(c, o(12f + ca * 7.5f, 12f + sa * 7.5f), o(12f + ca * 10f, 12f + sa * 10f), 2f * u, StrokeCap.Round)
+                // Sun: pointed rays, golden disc, bright centre.
+                val ray = Color(0xFFF5A623)
+                for (i in 0 until 12) {
+                    val a = Math.toRadians(i * 30.0)
+                    val a1 = Math.toRadians(i * 30.0 - 11.0)
+                    val a2 = Math.toRadians(i * 30.0 + 11.0)
+                    val p =
+                        Path().apply {
+                            moveTo(12f * u + (11.5f * u * Math.cos(a)).toFloat(), 12f * u + (11.5f * u * Math.sin(a)).toFloat())
+                            lineTo(12f * u + (7f * u * Math.cos(a1)).toFloat(), 12f * u + (7f * u * Math.sin(a1)).toFloat())
+                            lineTo(12f * u + (7f * u * Math.cos(a2)).toFloat(), 12f * u + (7f * u * Math.sin(a2)).toFloat())
+                            close()
+                        }
+                    drawPath(p, ray)
                 }
+                drawCircle(Color(0xFFFFC52E), 7.4f * u, o(12f, 12f))
+                drawCircle(Color(0xFFFFE07A), 5f * u, o(12f, 12f))
+                drawCircle(Color(0xFFFFF1BF), 2.4f * u, o(11f, 11f))
             }
             "puzzles" -> {
                 val c = Color(0xFFF38A3D)
@@ -751,12 +774,37 @@ fun KindIcon(
                 drawLine(C.dim, o(8.5f, 17f), o(13f, 17f), 1.8f * u, StrokeCap.Round)
             }
             else -> {
-                // Rapid (and live games of unknown speed): a stopwatch.
-                val c = C.green
-                drawCircle(c, 8f * u, o(12f, 13.5f), style = st)
-                drawLine(c, o(10f, 3f), o(14f, 3f), 2.2f * u, StrokeCap.Round)
-                drawLine(c, o(12f, 3f), o(12f, 5.5f), 2.2f * u, StrokeCap.Round)
-                drawLine(c, o(12f, 13.5f), o(12f, 9.5f), 2.2f * u, StrokeCap.Round)
+                // Rapid (and live games of unknown speed): a solid green stopwatch.
+                val g = Color(0xFF81B64C)
+                val gd = Color(0xFF5D8F33)
+                drawRoundRect(
+                    g,
+                    o(10f, 1.5f),
+                    androidx.compose.ui.geometry
+                        .Size(4f * u, 2.6f * u),
+                    androidx.compose.ui.geometry.CornerRadius(
+                        1f * u,
+                    ),
+                )
+                drawRect(
+                    gd,
+                    o(11.2f, 3.8f),
+                    androidx.compose.ui.geometry
+                        .Size(1.6f * u, 2.2f * u),
+                )
+                drawCircle(gd, 9.4f * u, o(12f, 14.6f))
+                drawCircle(g, 9.4f * u, o(12f, 14f))
+                drawCircle(Color(0xFFF3F3F0), 6.4f * u, o(12f, 14f))
+                // Needle, pointing a little left of twelve.
+                val n =
+                    Path().apply {
+                        moveTo(11.1f * u, 14.3f * u)
+                        lineTo(11.6f * u, 8.6f * u)
+                        lineTo(12.9f * u, 14.3f * u)
+                        close()
+                    }
+                drawPath(n, Color(0xFF6E6C69))
+                drawCircle(Color(0xFF6E6C69), 1.3f * u, o(12f, 14.2f))
             }
         }
     }
