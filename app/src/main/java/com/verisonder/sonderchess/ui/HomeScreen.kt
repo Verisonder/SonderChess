@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -156,64 +157,131 @@ fun HomeScreen() {
     var deleting by remember { mutableStateOf<SavedGame?>(null) }
     val rows = rememberHistory()
     val p = AppModel.profile
-    PullToRefreshBox(
-        isRefreshing = AppModel.accountBusy,
-        onRefresh = {
-            AppModel.refresh()
-            AppModel.refreshAccount()
-        },
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        LazyColumn(Modifier.fillMaxSize()) {
-            item { ProfileHeader(onSettings = { settings = true }) }
-            if (AppModel.username == null) item { ConnectCard() }
-            AppModel.accountError?.let { err ->
-                item { Text(err, style = body(13, color = C.error), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
-            }
-            if (p != null) item { StatsRow(p) }
-            item { HistoryTitle(p?.totalGames ?: rows.size) }
-            if (rows.isEmpty()) {
-                item {
-                    Text(
-                        if (AppModel.username == null) {
-                            "Share a game from Chess.com, or connect your account above."
-                        } else {
-                            "No games yet. Finish a game on Chess.com and it shows up here."
-                        },
-                        style = body(14, color = C.faint),
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-            }
-            items(rows.take(5), key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
-            if (rows.size > 5 || AppModel.username != null) {
-                item {
-                    Box(
-                        Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(C.panel2)
-                            .clickable { AppModel.screen = Screen.AllGames },
-                        contentAlignment = Alignment.Center,
-                    ) { Text("View All Games", style = body(17, FontWeight.Bold, C.dim)) }
-                }
-            }
-            item { Spacer(Modifier.height(24.dp)) }
+    val list =
+        androidx.compose.foundation.lazy
+            .rememberLazyListState()
+    // The bar above the banner fills in as the banner scrolls away.
+    val solid by androidx.compose.runtime.remember {
+        androidx.compose.runtime.derivedStateOf {
+            if (list.firstVisibleItemIndex > 0) 1f else (list.firstVisibleItemScrollOffset / 400f).coerceIn(0f, 1f)
         }
+    }
+    Box(Modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = AppModel.accountBusy,
+            onRefresh = {
+                AppModel.refresh()
+                AppModel.refreshAccount()
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            LazyColumn(Modifier.fillMaxSize(), state = list) {
+                item { ProfileHeader() }
+                if (AppModel.username == null) item { ConnectCard() }
+                AppModel.accountError?.let { err ->
+                    item { Text(err, style = body(13, color = C.error), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+                }
+                if (p != null) item { StatsRow(p) }
+                item { HistoryTitle(p?.totalGames ?: rows.size) }
+                if (rows.isEmpty()) {
+                    item {
+                        Text(
+                            if (AppModel.username == null) {
+                                "Share a game from Chess.com, or connect your account above."
+                            } else {
+                                "No games yet. Finish a game on Chess.com and it shows up here."
+                            },
+                            style = body(14, color = C.faint),
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+                items(rows.take(5), key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
+                if (rows.size > 5 || AppModel.username != null) {
+                    item {
+                        Box(
+                            Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(C.panel2)
+                                .clickable { AppModel.screen = Screen.AllGames },
+                            contentAlignment = Alignment.Center,
+                        ) { Text("View All Games", style = body(17, FontWeight.Bold, C.dim)) }
+                    }
+                }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+        HomeTopBar(solid, onSettings = { settings = true })
     }
     if (settings) SettingsDialog { settings = false }
     deleting?.let { g -> DeleteDialog(g) { deleting = null } }
+}
+
+/** Paste and settings, always reachable; the name fades in once the banner has scrolled away. */
+@Composable
+private fun HomeTopBar(
+    solid: Float,
+    onSettings: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    Row(
+        Modifier.fillMaxWidth().background(C.bar.copy(alpha = solid)).padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            AppModel.username ?: "SonderChess",
+            style = display(18),
+            modifier = Modifier.weight(1f).padding(start = 8.dp).graphicsLayer { alpha = solid },
+        )
+        Box(
+            Modifier.size(44.dp).clip(CircleShape).clickable {
+                val t = clipboard.getText()?.text.orEmpty()
+                if (t.isBlank()) {
+                    AppModel.screen = Screen.Failed("The clipboard is empty. Copy a Chess.com game link or a PGN first.")
+                } else {
+                    AppModel.handleText(t)
+                }
+            },
+            contentAlignment = Alignment.Center,
+        ) { PasteIcon() }
+        Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
+            GearIcon()
+        }
+    }
 }
 
 /** Every game: reviewed ones and your archive, with "Load older games" for earlier months. */
 @Composable
 fun AllGamesScreen() {
     var deleting by remember { mutableStateOf<SavedGame?>(null) }
-    val rows = rememberHistory()
+    val all = rememberHistory()
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val rows = if (query.isBlank()) all else all.filter { it.opponent.contains(query.trim(), ignoreCase = true) }
     Column(Modifier.fillMaxSize()) {
-        TopBar("Game History", onBack = { AppModel.screen = Screen.Home })
+        TopBar("Game History", onBack = { AppModel.screen = Screen.Home }) {
+            Box(Modifier.size(48.dp).clip(CircleShape).clickable { searching = !searching }, contentAlignment = Alignment.Center) {
+                SearchIcon()
+            }
+        }
+        androidx.compose.animation.AnimatedVisibility(searching) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("Search by opponent") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = C.green,
+                        unfocusedBorderColor = C.line,
+                        cursorColor = C.green,
+                    ),
+            )
+        }
         LazyColumn(Modifier.fillMaxSize()) {
             items(rows, key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
             if (AppModel.username != null) {
@@ -286,30 +354,12 @@ private fun HistoryTitle(count: Int) {
 
 /** Banner of pieces, big picture, name, flag, real name, location, then joined/followers/games. */
 @Composable
-private fun ProfileHeader(onSettings: () -> Unit) {
+private fun ProfileHeader() {
     val p = AppModel.profile
     val name = AppModel.username
-    val clipboard = LocalClipboardManager.current
     Column {
         Box(Modifier.fillMaxWidth().height(200.dp)) {
             PieceBanner(Modifier.fillMaxWidth().height(170.dp))
-            Row(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
-                // Paste a game link or PGN from the clipboard.
-                Box(
-                    Modifier.size(44.dp).clip(CircleShape).clickable {
-                        val t = clipboard.getText()?.text.orEmpty()
-                        if (t.isBlank()) {
-                            AppModel.screen = Screen.Failed("The clipboard is empty. Copy a Chess.com game link or a PGN first.")
-                        } else {
-                            AppModel.handleText(t)
-                        }
-                    },
-                    contentAlignment = Alignment.Center,
-                ) { PasteIcon() }
-                Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
-                    GearIcon()
-                }
-            }
             Row(Modifier.align(Alignment.BottomStart).padding(start = 16.dp), verticalAlignment = Alignment.Bottom) {
                 if (name != null) {
                     Avatar(name, true, 112.dp, p?.avatar)
@@ -418,7 +468,13 @@ private fun StatsRow(p: Profile) {
             p.puzzles?.let { Triple("puzzles", "Puzzles", it) },
         )
     if (cards.isEmpty()) return
-    Text("Stats", style = display(19), modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 10.dp))
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Stats", style = display(19), modifier = Modifier.weight(1f))
+        Text("View All", style = body(16, FontWeight.Bold, C.dim), modifier = Modifier.clickable { AppModel.screen = Screen.Stats })
+    }
     LazyRow(
         contentPadding =
             androidx.compose.foundation.layout
@@ -534,10 +590,7 @@ private fun GameRow(
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = {
-                        when {
-                            h.saved != null -> AppModel.open(h.saved)
-                            h.archived != null -> AppModel.reviewArchived(h.archived)
-                        }
+                        AppModel.openGame(h.saved, h.archived)
                     },
                     onLongClick = onLong,
                 ).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -1119,5 +1172,20 @@ fun PickSideScreen(f: FetchedGame) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SearchIcon() {
+    Canvas(Modifier.size(22.dp)) {
+        val w = 2.2.dp.toPx()
+        drawCircle(C.dim, size.width * 0.32f, Offset(size.width * 0.43f, size.height * 0.43f), style = Stroke(w))
+        drawLine(
+            C.dim,
+            Offset(size.width * 0.67f, size.height * 0.67f),
+            Offset(size.width * 0.92f, size.height * 0.92f),
+            w,
+            StrokeCap.Round,
+        )
     }
 }

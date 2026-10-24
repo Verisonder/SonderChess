@@ -63,6 +63,8 @@ class MainActivity : ComponentActivity() {
                             Screen.Home -> HomeScreen()
                             Screen.AllGames -> AllGamesScreen()
                             Screen.Theme -> ThemeScreen()
+                            Screen.Stats -> StatsScreen()
+                            is Screen.Game -> AppModel.viewing?.takeIf { it.id == st.id }?.let { GameScreen(it) } ?: HomeScreen()
                             is Screen.Loading -> LoadingScreen(st.message)
                             is Screen.Analysing -> AnalysingScreen(AppModel.screen as? Screen.Analysing ?: st)
                             is Screen.PickSide -> PickSideScreen(st.fetched)
@@ -79,8 +81,9 @@ class MainActivity : ComponentActivity() {
     private fun depthOf(s: Screen) =
         when (s) {
             Screen.Home -> 0
-            is Screen.Summary -> 2
-            is Screen.Board -> 3
+            is Screen.Game -> 2
+            is Screen.Summary -> 3
+            is Screen.Board -> 4
             else -> 1
         }
 

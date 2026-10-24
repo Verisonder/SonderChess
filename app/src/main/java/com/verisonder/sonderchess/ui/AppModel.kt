@@ -35,6 +35,12 @@ sealed interface Screen {
 
     data object Theme : Screen
 
+    data object Stats : Screen
+
+    data class Game(
+        val id: String,
+    ) : Screen
+
     data class Loading(
         val message: String,
     ) : Screen
@@ -157,6 +163,77 @@ object AppModel {
     fun setAnimation(v: Int) {
         animation = v
         store.animation = v
+    }
+
+    /** The game open on the game page. */
+    var viewing by mutableStateOf<GameView?>(null)
+        private set
+
+    /** Opens a game (from your archive and/or your reviews) on the game page. */
+    fun openGame(
+        saved: SavedGame?,
+        archived: ArchiveGame?,
+    ) {
+        val v =
+            runCatching {
+                if (archived != null) {
+                    val game = Pgn.parse(archived.pgn)
+                    val meWhite = !archived.black.equals(username, true)
+                    val mine = if (meWhite) archived.whiteResult else archived.blackResult
+                    val myRating = if (meWhite) archived.whiteRating else archived.blackRating
+                    val before =
+                        archive
+                            .filter { it.timeClass == archived.timeClass && it.endTime < archived.endTime }
+                            .maxByOrNull { it.endTime }
+                            ?.let { if (it.black.equals(username, true)) it.blackRating else it.whiteRating }
+                    GameView(
+                        id = archived.id,
+                        game = game,
+                        white = saved?.white ?: Player(archived.white, archived.whiteRating, false, null),
+                        black = saved?.black ?: Player(archived.black, archived.blackRating, false, null),
+                        meWhite = meWhite,
+                        clocks = Pgn.clocks(archived.pgn),
+                        ending = Pgn.endingOf(game.headers["Termination"]),
+                        result =
+                            when {
+                                mine == "win" -> 1
+                                mine in setOf("agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient") -> 0
+                                else -> -1
+                            },
+                        myRating = myRating,
+                        ratingChange = if (myRating != null && before != null) myRating - before else null,
+                        timeClass = archived.timeClass,
+                        archived = archived,
+                        saved = saved,
+                    )
+                } else {
+                    val sv = saved ?: return
+                    val r = sv.game.result
+                    GameView(
+                        id = sv.id,
+                        game = sv.game,
+                        white = sv.white,
+                        black = sv.black,
+                        meWhite = sv.meWhite,
+                        clocks = emptyList(),
+                        ending = Pgn.endingOf(sv.game.headers["Termination"]),
+                        result =
+                            when (r) {
+                                "1/2-1/2" -> 0
+                                "1-0" -> if (sv.meWhite) 1 else -1
+                                "0-1" -> if (sv.meWhite) -1 else 1
+                                else -> null
+                            },
+                        myRating = if (sv.meWhite) sv.white.rating else sv.black.rating,
+                        ratingChange = null,
+                        timeClass = sv.id.substringBefore('-'),
+                        archived = null,
+                        saved = sv,
+                    )
+                }
+            }.getOrNull() ?: return
+        viewing = v
+        screen = Screen.Game(v.id)
     }
 
     /** Copies a picked picture (scaled down) to be the review background. */
@@ -507,3 +584,23 @@ object AppModel {
         }
     }
 }
+
+/** A finished game as shown on the game page. */
+data class GameView(
+    val id: String,
+    val game: Game,
+    val white: Player,
+    val black: Player,
+    val meWhite: Boolean,
+    /** Clock left after each move, when known. */
+    val clocks: List<String?>,
+    /** "by Resignation", "on Time"… */
+    val ending: String?,
+    /** For you: 1 win, 0 draw, -1 loss. */
+    val result: Int?,
+    val myRating: Int?,
+    val ratingChange: Int?,
+    val timeClass: String,
+    val archived: ArchiveGame?,
+    val saved: SavedGame?,
+)

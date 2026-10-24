@@ -136,6 +136,44 @@ object Pgn {
         return sb.toString()
     }
 
+    /** Clock time left after each move ("0:09:55.4"), from Chess.com's {[%clk …]} notes; null where missing. */
+    fun clocks(text: String): List<String?> {
+        val body = text.replace(header, " ")
+        val out = ArrayList<String?>()
+        val tok = Regex("""\{[^}]*\}|[^\s{}]+""")
+        val clk = Regex("""%clk\s+([0-9:.]+)""")
+        var pending = false
+        for (m in tok.findAll(body)) {
+            val t = m.value
+            if (t.startsWith("{")) {
+                if (pending) {
+                    out[out.size - 1] = clk.find(t)?.groupValues?.get(1)
+                    pending = false
+                }
+                continue
+            }
+            if (t in setOf("1-0", "0-1", "1/2-1/2", "*") || t.startsWith("$")) continue
+            val san = t.replace(Regex("""^\d+\.+"""), "")
+            if (san.isEmpty()) continue
+            out.add(null)
+            pending = true
+        }
+        return out
+    }
+
+    /** "A_Nidal won by resignation" → "by Resignation"; "Game drawn by repetition" → "by Repetition". */
+    fun endingOf(termination: String?): String? {
+        val t = termination ?: return null
+        val m = Regex("""\b(by|on)\s+(.+)$""", RegexOption.IGNORE_CASE).find(t.trim()) ?: return null
+        val what =
+            m.groupValues[2]
+                .trim()
+                .trimEnd('.')
+                .split(' ')
+                .joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
+        return "${m.groupValues[1].lowercase()} $what"
+    }
+
     fun looksLikePgn(text: String) =
         text.contains(Regex("""\[\s*(Event|White|Black)\s+"""")) ||
             text.contains(Regex("""(^|\s)1\.\s*[a-hNBRQKO]"""))

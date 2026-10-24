@@ -24,11 +24,20 @@ data class Profile(
     val followers: Int? = null,
     /** All finished games, summed over the rating records. */
     val totalGames: Int? = null,
+    /** Per time class ("rapid", "blitz", "bullet", "daily"): wins, losses, draws and best rating. */
+    val records: Map<String, Record> = emptyMap(),
     val rapid: Int?,
     val blitz: Int?,
     val bullet: Int?,
     val daily: Int?,
     val puzzles: Int?,
+)
+
+data class Record(
+    val win: Int,
+    val loss: Int,
+    val draw: Int,
+    val best: Int?,
 )
 
 /** One game from your public archive (live and daily games; bot games are not in it). */
@@ -112,6 +121,22 @@ object ChessComApi {
                 country = p.optString("country").substringAfterLast('/', "").takeIf { it.length == 2 },
                 joined = p.optLong("joined").takeIf { it > 0 }?.times(1000L),
                 followers = if (p.has("followers")) p.optInt("followers") else null,
+                records =
+                    listOf("rapid", "blitz", "bullet", "daily")
+                        .mapNotNull { k ->
+                            val o = s?.optJSONObject("chess_$k") ?: return@mapNotNull null
+                            val r = o.optJSONObject("record") ?: return@mapNotNull null
+                            k to
+                                Record(
+                                    r.optInt("win"),
+                                    r.optInt("loss"),
+                                    r.optInt("draw"),
+                                    o.optJSONObject("best")?.optInt("rating")?.takeIf {
+                                        it >
+                                            0
+                                    },
+                                )
+                        }.toMap(),
                 totalGames =
                     listOf("chess_daily", "chess_rapid", "chess_blitz", "chess_bullet")
                         .sumOf { k ->
@@ -121,46 +146,78 @@ object ChessComApi {
             )
         }
 
-    /** Your most recent standard-chess games, newest first, from the last [months] monthly archives. */
-    suspend fun recentGames(
+    /** Month archives already read, by URL (the current month is always read again). */
+    private val months = ConcurrentHashMap<String, List<ArchiveGame>>()
+
+    private fun parseMonth(body: String): List<ArchiveGame> {
+        val games = JSONObject(body).optJSONArray("games") ?: return emptyList()
+        return (0 until games.length()).mapNotNull { i ->
+            val g = games.getJSONObject(i)
+            if (g.optString("rules") != "chess") return@mapNotNull null
+            val pgn = g.optString("pgn").ifBlank { return@mapNotNull null }
+            val url = g.optString("url")
+            val w = g.getJSONObject("white")
+            val b = g.getJSONObject("black")
+            val kind = if (url.contains("/daily/")) "daily" else "live"
+            ArchiveGame(
+                id = "$kind-" + url.substringAfterLast('/'),
+                url = url,
+                pgn = pgn,
+                timeClass = g.optString("time_class"),
+                endTime = g.optLong("end_time") * 1000L,
+                white = w.optString("username"),
+                black = b.optString("username"),
+                whiteRating = w.optInt("rating").takeIf { it > 0 },
+                blackRating = b.optInt("rating").takeIf { it > 0 },
+                whiteResult = w.optString("result"),
+                blackResult = b.optString("result"),
+                whiteAccuracy = g.optJSONObject("accuracies")?.optDouble("white")?.takeIf { !it.isNaN() },
+                blackAccuracy = g.optJSONObject("accuracies")?.optDouble("black")?.takeIf { !it.isNaN() },
+            )
+        }
+    }
+
+    private suspend fun monthsOf(
         username: String,
-        months: Int = 2,
+        count: Int,
     ): List<ArchiveGame> =
         withContext(Dispatchers.IO) {
             val list = get(BASE + user(username) + "/games/archives")?.let { JSONObject(it) } ?: return@withContext emptyList()
             val arr = list.optJSONArray("archives") ?: return@withContext emptyList()
-            val urls = (maxOf(0, arr.length() - months) until arr.length()).map { arr.getString(it) }
+            val urls = (maxOf(0, arr.length() - count) until arr.length()).map { arr.getString(it) }
+            val newest = urls.lastOrNull()
             coroutineScope {
-                urls.map { u -> async { runCatching { get(u) }.getOrNull() } }.awaitAll()
-            }.filterNotNull()
-                .flatMap { body ->
-                    val games = JSONObject(body).optJSONArray("games") ?: return@flatMap emptyList()
-                    (0 until games.length()).mapNotNull { i ->
-                        val g = games.getJSONObject(i)
-                        if (g.optString("rules") != "chess") return@mapNotNull null
-                        val pgn = g.optString("pgn").ifBlank { return@mapNotNull null }
-                        val url = g.optString("url")
-                        val w = g.getJSONObject("white")
-                        val b = g.getJSONObject("black")
-                        val kind = if (url.contains("/daily/")) "daily" else "live"
-                        ArchiveGame(
-                            id = "$kind-" + url.substringAfterLast('/'),
-                            url = url,
-                            pgn = pgn,
-                            timeClass = g.optString("time_class"),
-                            endTime = g.optLong("end_time") * 1000L,
-                            white = w.optString("username"),
-                            black = b.optString("username"),
-                            whiteRating = w.optInt("rating").takeIf { it > 0 },
-                            blackRating = b.optInt("rating").takeIf { it > 0 },
-                            whiteResult = w.optString("result"),
-                            blackResult = b.optString("result"),
-                            whiteAccuracy = g.optJSONObject("accuracies")?.optDouble("white")?.takeIf { !it.isNaN() },
-                            blackAccuracy = g.optJSONObject("accuracies")?.optDouble("black")?.takeIf { !it.isNaN() },
-                        )
-                    }
-                }.sortedByDescending { it.endTime }
+                urls
+                    .map { u ->
+                        async {
+                            months[u]?.takeIf { u != newest }
+                                ?: runCatching { get(u)?.let { parseMonth(it) } }.getOrNull()?.also { months[u] = it }
+                                ?: emptyList()
+                        }
+                    }.awaitAll()
+            }.flatten().sortedByDescending { it.endTime }
         }
+
+    /** Your most recent standard-chess games, newest first, from the last [months] monthly archives. */
+    suspend fun recentGames(
+        username: String,
+        months: Int = 2,
+    ): List<ArchiveGame> = monthsOf(username, months)
+
+    /** Every game since [sinceMillis] (0 = all of them), newest first. */
+    suspend fun gamesSince(
+        username: String,
+        sinceMillis: Long,
+    ): List<ArchiveGame> {
+        val count =
+            if (sinceMillis <= 0L) {
+                1000
+            } else {
+                val days = (System.currentTimeMillis() - sinceMillis) / 86_400_000L
+                (days / 28 + 2).toInt()
+            }
+        return monthsOf(username, count).filter { it.endTime >= sinceMillis }
+    }
 
     /** A player's profile picture link (cached), or null when they have none. */
     suspend fun avatar(username: String): String? {
