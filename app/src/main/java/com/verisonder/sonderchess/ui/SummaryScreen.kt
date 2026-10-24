@@ -43,7 +43,7 @@ fun SummaryScreen(o: Opened) {
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Coach(60.dp)
+                Coach(72.dp)
                 Spacer(Modifier.width(6.dp))
                 Bubble(Modifier.weight(1f)) { Text(Explain.summary(r, me), style = body(15, FontWeight.Medium, C.bubbleText)) }
             }

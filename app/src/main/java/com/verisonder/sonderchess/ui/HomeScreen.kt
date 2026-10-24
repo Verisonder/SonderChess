@@ -1125,7 +1125,7 @@ fun AnalysingScreen(s: Screen.Analysing) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Coach(52.dp, reactTo = s.done / 20)
+            Coach(62.dp, reactTo = s.done / 20)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Analysing your game", style = display(18))

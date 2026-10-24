@@ -9,6 +9,7 @@ import com.verisonder.sonderchess.core.Pgn
 import com.verisonder.sonderchess.core.Position
 import com.verisonder.sonderchess.core.PositionEval
 import com.verisonder.sonderchess.core.Tcn
+import com.verisonder.sonderchess.core.nextKeyMove
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -72,6 +73,10 @@ class CoreTest {
         // Chess.com: 78.3 / 72.6, two brilliant moves for White (26.Rad1, 27.Rxe6), two book moves each.
         assertEquals(78.3, r.accuracyWhite, 2.5)
         assertEquals(72.6, r.accuracyBlack, 2.5)
+        val stops = generateSequence(-1) { p -> if (p >= r.moves.lastIndex) null else nextKeyMove(r.moves, p) }.drop(1).toList()
+        println("stops: " + stops.joinToString { "${r.moves[it].san}(${r.moves[it].label})" })
+        assertEquals(0, stops.first())
+        assertEquals(r.moves.lastIndex, stops.last())
         assertEquals(2, r.count(true, Label.Brilliant))
         assertEquals(2, r.count(true, Label.Book))
         assertEquals(2, r.count(false, Label.Book))

@@ -55,6 +55,24 @@ data class PositionEval(
     val depth: Int = 0,
 )
 
+/**
+ * The next move worth stopping on after [ply]: a brilliant, great or bad move, the reply
+ * to one, or the first move out of the opening book. The last move if nothing else is left.
+ */
+fun nextKeyMove(
+    moves: List<MoveReview>,
+    ply: Int,
+): Int {
+    fun key(l: Label) = l in setOf(Label.Brilliant, Label.Great, Label.Inaccuracy, Label.Mistake, Label.Miss, Label.Blunder)
+    for (i in (ply + 1)..moves.lastIndex) {
+        if (i == 0 || key(moves[i].label)) return i
+        val prev = moves[i - 1].label
+        if (key(prev)) return i
+        if (prev == Label.Book && moves[i].label != Label.Book) return i
+    }
+    return moves.lastIndex
+}
+
 data class MoveReview(
     val ply: Int,
     val white: Boolean,

@@ -147,7 +147,7 @@ fun ReviewScreen(
                 Modifier.fillMaxWidth().heightIn(min = 112.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Coach(56.dp, reactTo = ply)
+                Coach(68.dp, reactTo = ply)
                 Spacer(Modifier.width(4.dp))
                 Bubble(Modifier.weight(1f)) {
                     AnimatedContent(
@@ -214,7 +214,16 @@ fun ReviewScreen(
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.weight(1f)) {
                     GreenButton(if (ply >= last) "Done" else "Next", height = 52.dp) {
-                        if (ply >= last) AppModel.screen = Screen.Summary(o.saved.id) else go(ply + 1)
+                        if (ply >=
+                            last
+                        ) {
+                            AppModel.screen = Screen.Summary(o.saved.id)
+                        } else {
+                            go(
+                                com.verisonder.sonderchess.core
+                                    .nextKeyMove(r.moves, ply),
+                            )
+                        }
                     }
                 }
             }
