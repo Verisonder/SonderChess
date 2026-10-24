@@ -119,6 +119,9 @@ fun ChessBoard(
 ) {
     val pieces = piecePainters(set)
     val tm = rememberTextMeasurer()
+    val lightCol by androidx.compose.animation.animateColorAsState(theme.light, tween(350), label = "light")
+    val darkCol by androidx.compose.animation.animateColorAsState(theme.dark, tween(350), label = "dark")
+    val shownTheme = theme.copy(light = lightCol, dark = darkCol)
     val key = position.fen()
     val shown = remember { arrayOf(position) }
     val glide = remember { Animatable(1f) }
@@ -163,14 +166,14 @@ fun ChessBoard(
         }
         for (sq in 0 until 64) {
             val light = (fileOf(sq) + rankOf(sq)) % 2 == 1
-            drawRect(if (light) theme.light else theme.dark, origin(sq), Size(s, s))
+            drawRect(if (light) shownTheme.light else shownTheme.dark, origin(sq), Size(s, s))
         }
         if (last != null && AppModel.highlightLast) {
             val tint = (label?.colour() ?: Color(0xFFF7EC74)).copy(alpha = 0.5f * (0.35f + 0.65f * glide.value))
             drawRect(tint, origin(last.from), Size(s, s))
             drawRect(tint, origin(last.to), Size(s, s))
         }
-        if (AppModel.coordinates) drawCoordinates(tm, s, flipped, theme)
+        if (AppModel.coordinates) drawCoordinates(tm, s, flipped, shownTheme)
         val a = anim
         val t = glide.value
         val moving =

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -196,7 +198,16 @@ fun HomeScreen() {
                         )
                     }
                 }
-                items(rows.take(5), key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
+                itemsIndexed(rows.take(5), key = { _, it -> it.id }) { i, h ->
+                    Box(Modifier.appear(i + 4)) {
+                        GameRow(h, onLong = {
+                            h.saved?.let {
+                                deleting =
+                                    it
+                            }
+                        })
+                    }
+                }
                 if (rows.size > 5 || AppModel.username != null) {
                     item {
                         Box(
@@ -283,7 +294,16 @@ fun AllGamesScreen() {
             )
         }
         LazyColumn(Modifier.fillMaxSize()) {
-            items(rows, key = { it.id }) { h -> GameRow(h, onLong = { h.saved?.let { deleting = it } }) }
+            itemsIndexed(rows, key = { _, it -> it.id }) { i, h ->
+                Box(Modifier.appear(i)) {
+                    GameRow(h, onLong = {
+                        h.saved?.let {
+                            deleting =
+                                it
+                        }
+                    })
+                }
+            }
             if (AppModel.username != null) {
                 item {
                     Box(
@@ -361,8 +381,29 @@ private fun ProfileHeader() {
         Box(Modifier.fillMaxWidth().height(200.dp)) {
             PieceBanner(Modifier.fillMaxWidth().height(170.dp))
             Row(Modifier.align(Alignment.BottomStart).padding(start = 16.dp), verticalAlignment = Alignment.Bottom) {
+                val pop =
+                    remember {
+                        androidx.compose.animation.core
+                            .Animatable(0.6f)
+                    }
+                LaunchedEffect(Unit) {
+                    pop.animateTo(
+                        1f,
+                        androidx.compose.animation.core
+                            .spring(dampingRatio = 0.5f, stiffness = 300f),
+                    )
+                }
                 if (name != null) {
-                    Avatar(name, true, 112.dp, p?.avatar)
+                    Box(
+                        Modifier.graphicsLayer {
+                            scaleX = pop.value
+                            scaleY = pop.value
+                            alpha =
+                                ((pop.value - 0.6f) / 0.4f).coerceIn(0f, 1f)
+                        },
+                    ) {
+                        Avatar(name, true, 112.dp, p?.avatar)
+                    }
                 } else {
                     Box(Modifier.size(112.dp).clip(RoundedCornerShape(8.dp)).background(C.panel2), contentAlignment = Alignment.Center) {
                         Image(painterResource(R.drawable.piece_wn), null, Modifier.size(84.dp))
@@ -390,8 +431,8 @@ private fun ProfileHeader() {
                         Modifier.weight(1.3f),
                     )
                 }
-                p.followers?.let { Fact(it.toString(), "Followers", Modifier.weight(1f)) }
-                p.totalGames?.let { Fact(it.toString(), "Games", Modifier.weight(1f)) }
+                p.followers?.let { CountFact(it, "Followers", Modifier.weight(1f)) }
+                p.totalGames?.let { CountFact(it, "Games", Modifier.weight(1f)) }
             }
         }
     }
@@ -405,6 +446,18 @@ private fun Fact(
 ) {
     Column(modifier) {
         Text(value, style = body(19, FontWeight.Bold), maxLines = 1)
+        Text(label, style = body(15, color = C.faint))
+    }
+}
+
+@Composable
+private fun CountFact(
+    value: Int,
+    label: String,
+    modifier: Modifier,
+) {
+    Column(modifier) {
+        CountUp(value, body(19, FontWeight.Bold))
         Text(label, style = body(15, color = C.faint))
     }
 }
@@ -485,6 +538,7 @@ private fun StatsRow(p: Profile) {
             val (kind, label, value) = cards[i]
             Column(
                 Modifier
+                    .appear(i + 1)
                     .size(118.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF2A2825))
@@ -499,7 +553,7 @@ private fun StatsRow(p: Profile) {
             ) {
                 KindIcon(kind, 44.dp)
                 Spacer(Modifier.height(8.dp))
-                Text(value.toString(), style = display(20))
+                CountUp(value, display(20), delayMs = 200 + i * 60)
                 Text(label, style = body(14, FontWeight.Medium, C.faint))
             }
         }
@@ -990,28 +1044,10 @@ private fun SettingsDialog(onClose: () -> Unit) {
             Column {
                 Text("Analysis depth", style = body(13, FontWeight.Bold, C.faint))
                 Spacer(Modifier.height(6.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(C.bg)
-                        .padding(4.dp),
-                ) {
-                    for ((d, n) in listOf(12 to "Fast", 16 to "Normal", 20 to "Deep")) {
-                        val on = depth == d
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (on) C.panel2 else C.bg)
-                                .clickable {
-                                    depth = d
-                                    AppModel.setDepth(d)
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) { Text(n, style = body(14, FontWeight.Bold, if (on) C.text else C.faint)) }
-                    }
+                val depths = listOf(12, 16, 20)
+                SlidingSegments(listOf("Fast", "Normal", "Deep"), depths.indexOf(depth).coerceAtLeast(0), track = C.bg) {
+                    depth = depths[it]
+                    AppModel.setDepth(depths[it])
                 }
                 Spacer(Modifier.height(18.dp))
                 Text("Look", style = body(13, FontWeight.Bold, C.faint))

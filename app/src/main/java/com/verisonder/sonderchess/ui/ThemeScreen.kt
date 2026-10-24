@@ -103,12 +103,16 @@ fun ThemeScreen() {
                     }
                 }
             }
-            when (tab) {
-                0 -> BoardTab()
-                1 -> PiecesTab()
-                2 -> BackgroundTab()
-                3 -> SoundsTab()
-                else -> MoreTab()
+            androidx.compose.animation.Crossfade(tab, animationSpec = tween(220), label = "themeTab") { t ->
+                Column {
+                    when (t) {
+                        0 -> BoardTab()
+                        1 -> PiecesTab()
+                        2 -> BackgroundTab()
+                        3 -> SoundsTab()
+                        else -> MoreTab()
+                    }
+                }
             }
         }
     }
@@ -249,26 +253,7 @@ private fun MoreTab() {
             Spacer(Modifier.height(14.dp))
             Text("Piece animation", style = body(16, FontWeight.Bold))
             Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(C.panel)
-                    .padding(4.dp),
-            ) {
-                for ((v, n) in listOf(0 to "Off", 1 to "Slow", 2 to "Normal", 3 to "Fast")) {
-                    val on = AppModel.animation == v
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (on) C.panel2 else C.panel)
-                            .clickable { AppModel.setAnimation(v) },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(n, style = body(14, FontWeight.Bold, if (on) C.text else C.faint)) }
-                }
-            }
+            SlidingSegments(listOf("Off", "Slow", "Normal", "Fast"), AppModel.animation, height = 40.dp) { AppModel.setAnimation(it) }
             Spacer(Modifier.height(24.dp))
         }
     }

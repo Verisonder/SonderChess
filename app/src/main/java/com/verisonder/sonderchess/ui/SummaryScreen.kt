@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -163,15 +162,4 @@ private fun Count(
         modifier = modifier,
         textAlign = TextAlign.Center,
     )
-}
-
-/** Fades and slides in, each [index] a beat after the one before. */
-@Composable
-private fun Modifier.appear(index: Int): Modifier {
-    val t = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { t.animateTo(1f, tween(320, delayMillis = 120 + index * 45, easing = FastOutSlowInEasing)) }
-    return this.graphicsLayer {
-        alpha = t.value
-        translationY = (1f - t.value) * 14.dp.toPx()
-    }
 }

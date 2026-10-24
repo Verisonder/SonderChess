@@ -102,27 +102,7 @@ fun StatsScreen() {
                 }
             }
             item {
-                Row(
-                    Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(C.panel)
-                        .padding(4.dp),
-                ) {
-                    for ((i, pr) in periods.withIndex()) {
-                        val on = i == period
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (on) C.panel2 else C.panel)
-                                .clickable { period = i },
-                            contentAlignment = Alignment.Center,
-                        ) { Text(pr.first, style = body(13, FontWeight.Bold, if (on) C.text else C.faint)) }
-                    }
-                }
+                SlidingSegments(periods.map { it.first }, period, Modifier.padding(horizontal = 16.dp), height = 36.dp) { period = it }
             }
             item {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -131,7 +111,7 @@ fun StatsScreen() {
                     if (games == null) {
                         CircularProgressIndicator(color = C.green, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
                     } else {
-                        Text(games!!.size.toString(), style = display(28))
+                        CountUp(games!!.size, display(28))
                         Spacer(Modifier.width(8.dp))
                         Text("Games", style = body(17, color = C.dim))
                     }
@@ -148,7 +128,9 @@ fun StatsScreen() {
                 val series = mine.mapNotNull { g -> if (g.black.equals(user, true)) g.blackRating else g.whiteRating }
                 val change = if (series.size >= 2) series.last() - series.first() else null
                 item(key = kind) {
-                    StatRow(kind, name, rating?.toString() ?: "–", change, open == kind) { open = if (open == kind) null else kind }
+                    Box(Modifier.appear(listOf("daily", "rapid", "bullet", "blitz").indexOf(kind))) {
+                        StatRow(kind, name, rating?.toString() ?: "–", change, open == kind) { open = if (open == kind) null else kind }
+                    }
                     AnimatedVisibility(open == kind, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                             RatingChart(series)

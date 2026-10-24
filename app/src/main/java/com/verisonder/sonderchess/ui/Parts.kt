@@ -355,3 +355,74 @@ fun figurine(
     val glyphs = if (white) "♔♕♖♗♘" else "♚♛♜♝♞"
     return glyphs[i] + san.substring(1)
 }
+
+/** Fades and slides in, each [index] a beat after the one before (capped so long lists don't wait). */
+@Composable
+fun Modifier.appear(index: Int): Modifier {
+    val t = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        t.animateTo(1f, tween(320, delayMillis = 80 + index.coerceAtMost(10) * 45, easing = FastOutSlowInEasing))
+    }
+    return this.graphicsLayer {
+        alpha = t.value
+        translationY = (1f - t.value) * 14.dp.toPx()
+    }
+}
+
+/** A number that counts up to [value] the first time it shows, and glides when it changes. */
+@Composable
+fun CountUp(
+    value: Int,
+    style: androidx.compose.ui.text.TextStyle,
+    modifier: Modifier = Modifier,
+    delayMs: Int = 150,
+) {
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(value) { shown.animateTo(value.toFloat(), tween(800, delayMillis = delayMs, easing = FastOutSlowInEasing)) }
+    Text(shown.value.toInt().toString(), style = style, modifier = modifier)
+}
+
+/** Segmented buttons with a pill that slides to the picked one. */
+@Composable
+fun SlidingSegments(
+    labels: List<String>,
+    selected: Int,
+    modifier: Modifier = Modifier,
+    track: Color = C.panel,
+    pill: Color = C.panel2,
+    height: Dp = 38.dp,
+    onSelect: (Int) -> Unit,
+) {
+    val pos by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.75f, stiffness = 500f), label = "seg")
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(track)
+            .padding(4.dp),
+    ) {
+        val w = maxWidth / labels.size
+        Box(
+            Modifier
+                .offset(x = w * pos)
+                .width(w)
+                .height(height)
+                .clip(RoundedCornerShape(8.dp))
+                .background(pill),
+        )
+        Row {
+            labels.forEachIndexed { i, l ->
+                val on = i == selected
+                val col by androidx.compose.animation.animateColorAsState(if (on) C.text else C.faint, tween(200), label = "segText")
+                Box(
+                    Modifier
+                        .width(w)
+                        .height(height)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSelect(i) },
+                    contentAlignment = Alignment.Center,
+                ) { Text(l, style = body(14, FontWeight.Bold, col)) }
+            }
+        }
+    }
+}

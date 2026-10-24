@@ -199,11 +199,16 @@ private fun PlayerBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        val clockBg by androidx.compose.animation.animateColorAsState(
+            if (activeTurn) Color(0xFFE6E6E6) else C.panel2,
+            tween(250),
+            label = "clock",
+        )
         if (clock != null) {
             Box(
                 Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(if (activeTurn) Color(0xFFE6E6E6) else C.panel2)
+                    .background(clockBg)
                     .padding(horizontal = 14.dp, vertical = 6.dp),
             ) { Text(clock, style = body(18, FontWeight.Bold, if (activeTurn) C.bubbleText else C.dim)) }
         }
@@ -224,7 +229,7 @@ private fun GameMoveStrip(
             Row(
                 Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(if (on) C.panel2 else Color.Transparent)
+                    .background(stripBg(on))
                     .clickable {
                         onPick(i)
                     }.padding(horizontal = 6.dp, vertical = 6.dp),
@@ -484,7 +489,7 @@ private fun ResultCard(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     KindIcon(v.timeClass, 24.dp)
                                     Spacer(Modifier.width(6.dp))
-                                    Text(r.toString(), style = display(22))
+                                    CountUp(r, display(22), delayMs = 350)
                                     v.ratingChange?.let { d ->
                                         Text(
                                             (if (d >= 0) " +" else " ") + d,
@@ -603,4 +608,10 @@ private fun HoppingKnight() {
             }
         }
     }
+}
+
+@Composable
+private fun stripBg(on: Boolean): Color {
+    val c by androidx.compose.animation.animateColorAsState(if (on) C.panel2 else C.bar.copy(alpha = 0f), tween(180), label = "strip")
+    return c
 }
