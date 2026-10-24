@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -66,16 +67,34 @@ fun LabelIcon(
     }
 }
 
-/** The Verisonder mark: a pixel V on a 7x7 grid (column, row). */
-private val markPixels = listOf(1 to 1, 5 to 1, 1 to 2, 5 to 2, 2 to 3, 4 to 3, 2 to 4, 4 to 4, 3 to 5)
+/**
+ * The coach: the Verisonder SR mark (blue pixel S, white pixel R), traced from the logo into
+ * rectangles on a 256x256 grid so it stays sharp at any size.
+ */
+private object SrMark {
+    private fun p(d: String) =
+        androidx.compose.ui.graphics.vector
+            .PathParser()
+            .parsePathString(d)
+            .toPath()
 
-private val Night = Color(0xFF0B1633)
-private val Amber = Color(0xFFFFB74A)
-private val Pale = Color(0xFFFFE3A6)
+    val s by lazy {
+        p(
+            "M41 112h71v7h-71zM40 119h72v1h-72zM32 120h80v7h-80zM81 127h28v1h-28zM82 128h27v14h-27zM82 142h17v8h-17zM82 150h8v7h-8zM24 127h27v45h-27zM9 172h108v8h-108zM18 180h99v7h-99zM77 187h28v15h-28zM41 202h9v8h-9zM80 202h27v15h-27zM32 210h18v7h-18zM25 217h81v7h-81zM25 224h73v1h-73zM16 225h81v7h-81z",
+        )
+    }
+    val r by lazy {
+        p(
+            "M139 25h72v7h-72zM139 32h80v1h-80zM139 33h81v7h-81zM196 40h27v30h-27zM139 40h26v37h-26zM202 70h26v7h-26zM147 77h90v7h-90zM147 84h91v1h-91zM154 85h90v7h-90zM154 92h89v1h-89zM199 93h27v6h-27zM175 99h8v1h-8zM166 99h8v1h-8zM148 99h17v1h-17zM184 99h53v1h-53zM139 99h8v1h-8zM139 100h107v7h-107zM139 107h99v1h-99zM139 108h98v7h-98zM139 115h27v1h-27zM196 115h27v45h-27zM139 116h26v44h-26z",
+        )
+    }
+    val blue = Color(0xFF379ED6)
+    val white = Color(0xFFF8F8F8)
+}
 
 /**
- * The coach: the Verisonder pixel V. When it has something new to say it hops, and its pixels
- * light up pale one after another down the V, then settle back to amber.
+ * The coach. When it has something new to say it hops, the S and then the R give a little
+ * bounce of their own, and both letters brighten for a moment.
  */
 @Composable
 fun Coach(
@@ -83,12 +102,25 @@ fun Coach(
     reactTo: Any? = null,
 ) {
     val hop = remember { Animatable(0f) }
+    val sJump = remember { Animatable(0f) }
+    val rJump = remember { Animatable(0f) }
     val glow = remember { Animatable(0f) }
     LaunchedEffect(reactTo) {
         if (reactTo == null) return@LaunchedEffect
         launch {
-            glow.snapTo(0f)
-            glow.animateTo(1f, tween(700, easing = FastOutSlowInEasing))
+            glow.snapTo(1f)
+            glow.animateTo(0f, tween(650, easing = FastOutSlowInEasing))
+        }
+        launch {
+            sJump.snapTo(0f)
+            sJump.animateTo(1f, tween(120, easing = FastOutSlowInEasing))
+            sJump.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 500f))
+        }
+        launch {
+            kotlinx.coroutines.delay(90)
+            rJump.snapTo(0f)
+            rJump.animateTo(1f, tween(120, easing = FastOutSlowInEasing))
+            rJump.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 500f))
         }
         hop.snapTo(0f)
         hop.animateTo(1f, tween(140, easing = FastOutSlowInEasing))
@@ -98,35 +130,39 @@ fun Coach(
         Modifier
             .size(size)
             .graphicsLayer {
-                translationY = -hop.value * size.toPx() * 0.08f
+                translationY = -hop.value * size.toPx() * 0.06f
                 scaleX = 1f + hop.value * 0.04f
                 scaleY = 1f + hop.value * 0.04f
             },
     ) {
-        val r = this.size.width * 0.22f
+        val w = this.size.width
         drawRoundRect(
-            Night,
+            Color(0xFF111214),
             cornerRadius =
                 androidx.compose.ui.geometry
-                    .CornerRadius(r),
+                    .CornerRadius(w * 0.22f),
         )
-        val cell = this.size.width / 7f
+        val k = w / 256f * 0.86f
+        val pad = (w - 256f * k) / 2f
         val g = glow.value
-        markPixels.forEachIndexed { i, (cx, cy) ->
-            // A pale wave runs down the V (top pixels first) as the coach starts talking.
-            val wave = (1f - kotlin.math.abs(g * 1.6f - i / (markPixels.size - 1f) - 0.3f) * 3f).coerceIn(0f, 1f)
-            val col =
+        withTransform({
+            translate(pad, pad - sJump.value * w * 0.07f)
+            scale(k, k, Offset.Zero)
+        }) {
+            drawPath(
+                SrMark.s,
                 androidx.compose.ui.graphics
-                    .lerp(Amber, Pale, if (g in 0.001f..0.999f) wave else 0f)
-            val o = Offset(cx * cell, cy * cell)
-            if (wave > 0.05f && g < 0.999f) {
-                drawCircle(Amber.copy(alpha = 0.22f * wave), cell * 0.8f, Offset(o.x + cell / 2f, o.y + cell / 2f))
-            }
-            drawRect(
-                col,
-                o,
-                androidx.compose.ui.geometry
-                    .Size(cell + 0.5f, cell + 0.5f),
+                    .lerp(SrMark.blue, Color(0xFF9FD6F5), g * 0.6f),
+            )
+        }
+        withTransform({
+            translate(pad, pad - rJump.value * w * 0.07f)
+            scale(k, k, Offset.Zero)
+        }) {
+            drawPath(
+                SrMark.r,
+                androidx.compose.ui.graphics
+                    .lerp(SrMark.white, Color.White, g),
             )
         }
     }
