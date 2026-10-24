@@ -47,18 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.verisonder.sonderchess.core.Label
-import com.verisonder.sonderchess.core.Piece
 import com.verisonder.sonderchess.core.Position
 import com.verisonder.sonderchess.core.fileOf
 import com.verisonder.sonderchess.core.rankOf
@@ -520,7 +515,7 @@ private fun ResultCard(
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-                    HoppingKnight()
+                    PieceDance()
                     Spacer(Modifier.height(18.dp))
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -604,94 +599,6 @@ private fun BannerStrip() {
             androidx.compose.ui.graphics.Brush
                 .verticalGradient(listOf(C.panel.copy(alpha = 0.25f), C.panel.copy(alpha = 0.6f), C.panel)),
         )
-    }
-}
-
-/**
- * A knight touring a 3x3 board. Each jump follows the L: two squares one way, then one square
- * the other, a little hop on each leg, facing where it is going. The square it lands on lights up.
- */
-@Composable
-private fun HoppingKnight() {
-    val cells = listOf(0 to 1, 2 to 2, 1 to 0, 0 to 2, 2 to 1, 0 to 0, 1 to 2, 2 to 0)
-    var i by remember { mutableIntStateOf(0) }
-    val t = remember { Animatable(1f) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(900)
-            t.snapTo(0f)
-            i = (i + 1) % cells.size
-            t.animateTo(1f, tween(620, easing = androidx.compose.animation.core.LinearEasing))
-        }
-    }
-    val knight = painterResource(AppModel.pieces.white[Piece.KNIGHT - 1])
-    Canvas(Modifier.size(196.dp, 204.dp)) {
-        val w = size.width
-        val s = w / 3f
-        val corner =
-            androidx.compose.ui.geometry
-                .CornerRadius(w * 0.1f)
-        // A darker edge under the board so it stands like a tile.
-        drawRoundRect(Color(0xFF3B3A38), cornerRadius = corner)
-        val top =
-            androidx.compose.ui.graphics.Path().apply {
-                addRoundRect(
-                    androidx.compose.ui.geometry
-                        .RoundRect(0f, 0f, w, w, corner),
-                )
-            }
-        clipPath(top) {
-            for (r in 0..2) {
-                for (c in 0..2) {
-                    drawRect(
-                        if ((r + c) % 2 == 0) Color(0xFF5F5E5B) else Color(0xFF4E4D4A),
-                        Offset(c * s, r * s),
-                        androidx.compose.ui.geometry
-                            .Size(s, s),
-                    )
-                }
-            }
-            val (fc, fr) = cells[(i - 1 + cells.size) % cells.size]
-            val (tc, tr) = cells[i]
-            val p = t.value
-            // Light leaves the old square as the knight takes off and fills the new one as it lands.
-            drawRect(
-                C.green.copy(alpha = (1f - p * 3f).coerceIn(0f, 1f)),
-                Offset(fc * s, fr * s),
-                androidx.compose.ui.geometry
-                    .Size(s, s),
-            )
-            drawRect(
-                C.green.copy(alpha = ((p - 0.8f) * 5f).coerceIn(0f, 1f)),
-                Offset(tc * s, tr * s),
-                androidx.compose.ui.geometry
-                    .Size(s, s),
-            )
-            // The L: the long leg first, then the short one.
-            val longX = kotlin.math.abs(tc - fc) == 2
-            val (mc, mr) = if (longX) tc to fr else fc to tr
-            val split = 0.62f
-            val (x, y, leg) =
-                if (p < split) {
-                    val q = FastOutSlowInEasing.transform(p / split)
-                    Triple(fc + (mc - fc) * q, fr + (mr - fr) * q, q)
-                } else {
-                    val q = FastOutSlowInEasing.transform((p - split) / (1f - split))
-                    Triple(mc + (tc - mc) * q, mr + (tr - mr) * q, q)
-                }
-            val lift = kotlin.math.sin(Math.PI * leg).toFloat() * s * (if (p < split) 0.28f else 0.18f)
-            val faceRight = tc > fc
-            translate(x * s + s * 0.1f, y * s + s * 0.1f - lift) {
-                scale(if (faceRight) -1f else 1f, 1f, Offset(s * 0.4f, s * 0.4f)) {
-                    with(knight) {
-                        draw(
-                            androidx.compose.ui.geometry
-                                .Size(s * 0.8f, s * 0.8f),
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
