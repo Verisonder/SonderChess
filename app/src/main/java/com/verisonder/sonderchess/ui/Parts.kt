@@ -429,7 +429,15 @@ fun Modifier.appear(
     val fresh = remember(key) { Played.first(key) }
     val t = remember(key) { Animatable(if (fresh) 0f else 1f) }
     LaunchedEffect(key) {
-        if (fresh) t.animateTo(1f, tween(320, delayMillis = 80 + index.coerceAtMost(10) * 45, easing = FastOutSlowInEasing))
+        // Only the first screenful arrives one after another; rows scrolled into view just fade in
+        // quickly, so a fast scroll never outruns them.
+        if (fresh) {
+            if (index < 8) {
+                t.animateTo(1f, tween(280, delayMillis = 60 + index * 40, easing = FastOutSlowInEasing))
+            } else {
+                t.animateTo(1f, tween(140, easing = FastOutSlowInEasing))
+            }
+        }
     }
     return this.graphicsLayer {
         alpha = t.value
