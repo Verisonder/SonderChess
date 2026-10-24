@@ -41,6 +41,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
@@ -420,8 +421,7 @@ private fun MiniBoardTile(size: Dp) {
             }
         }
         knight?.run {
-            androidx.compose.ui.graphics.drawscope
-                .translate(s, s) { draw(Size(s * 2f, s * 2f)) }
+            translate(s, s) { draw(Size(s * 2f, s * 2f)) }
         }
     }
 }
